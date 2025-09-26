@@ -1,7 +1,7 @@
 # Windo - AI-Powered Educational Simulation Platform
 
 ## Product Vision
-Windo transforms static business case studies into dynamic, AI-driven learning experiences. Instead of multiple-choice questions with predetermined answers, students engage in open-ended conversations with an AI "thinking partner" that challenges their assumptions using the Socratic method.
+Windo is an AI-powered platform that empowers educators and trainers to create their own dynamic, interactive simulations from any text-based scenario. Users can input a case study, a real-world event, or a custom-written problem, and Windo's engine generates an AI 'thinking partner' for learners to engage with. This approach moves beyond rigid, multiple-choice questions, instead fostering real-world critical thinking as students navigate ambiguous problems through Socratic dialogue.
 
 ## Core Problem
 Traditional education simulations are rigid and fail to teach critical thinking. Students need to learn how to navigate ambiguous, complex problems where each decision affects future outcomes - just like the real world.

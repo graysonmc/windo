@@ -17,13 +17,18 @@ const apiClient = axios.create({
   timeout: 10000
 });
 
-async function checkAPIConnection() {
-  try {
-    const response = await apiClient.get('/health');
-    return response.data;
-  } catch (error) {
-    return null;
+async function checkAPIConnection(retries = 5, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await apiClient.get('/health');
+      return response.data;
+    } catch (error) {
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
+  return null;
 }
 
 async function displayHeader() {
@@ -62,17 +67,19 @@ async function professorSetup() {
   console.log(chalk.green.bold('\n[Professor Setup Mode]\n'));
   console.log(chalk.gray('Create a new simulation by providing the scenario and AI behavior instructions.\n'));
 
+  console.log(chalk.gray('Tip: For multi-line input, use \\n to represent new lines\n'));
+
   const answers = await inquirer.prompt([
     {
-      type: 'editor',
+      type: 'input',
       name: 'scenario',
-      message: 'Enter the scenario/case study (opens in editor):',
+      message: 'Enter the scenario/case study:',
       validate: (input) => input.trim() ? true : 'Scenario cannot be empty'
     },
     {
-      type: 'editor',
+      type: 'input',
       name: 'instructions',
-      message: 'Enter AI behavior instructions (opens in editor):',
+      message: 'Enter AI behavior instructions:',
       validate: (input) => input.trim() ? true : 'Instructions cannot be empty'
     }
   ]);
@@ -211,7 +218,7 @@ async function editMode() {
     if (editChoice === 'scenario' || editChoice === 'both') {
       const { newScenario } = await inquirer.prompt([
         {
-          type: 'editor',
+          type: 'input',
           name: 'newScenario',
           message: 'Enter new scenario:',
           default: state.scenario,
@@ -224,7 +231,7 @@ async function editMode() {
     if (editChoice === 'instructions' || editChoice === 'both') {
       const { newInstructions } = await inquirer.prompt([
         {
-          type: 'editor',
+          type: 'input',
           name: 'newInstructions',
           message: 'Enter new instructions:',
           default: state.instructions,
@@ -409,9 +416,10 @@ async function clearSimulation() {
 async function main() {
   await displayHeader();
 
+  console.log(chalk.gray('Connecting to API server...'));
   const apiStatus = await checkAPIConnection();
   if (!apiStatus) {
-    console.log(chalk.red.bold('! Cannot connect to API server!'));
+    console.log(chalk.red.bold('! Cannot connect to API server after 5 attempts!'));
     console.log(chalk.yellow('\nPlease ensure the API server is running:'));
     console.log(chalk.gray('  npm run api     (from project root)'));
     console.log(chalk.gray('  npm run dev     (to run both API and CLI)'));
