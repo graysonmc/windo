@@ -8,15 +8,14 @@ const __dirname = dirname(__filename);
 
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 
+/**
+ * SimulationEngine - Stateless AI conversation processor
+ *
+ * This engine processes student messages in the context of a simulation.
+ * It does NOT store state internally - all state management is handled by the API layer.
+ */
 class SimulationEngine {
-  constructor(scenario = '', instructions = '') {
-    this.scenario = scenario;
-    this.instructions = instructions;
-    this.conversationHistory = [];
-    this.simulationId = Date.now().toString();
-    this.createdAt = new Date();
-    this.lastModified = new Date();
-
+  constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -26,15 +25,17 @@ class SimulationEngine {
     }
   }
 
-  async processStudentInput(studentMessage) {
+  /**
+   * Process a student's message in the context of a simulation
+   *
+   * @param {Object} simulation - The simulation configuration from database
+   * @param {Array} conversationHistory - Array of previous messages
+   * @param {String} studentMessage - The new message from the student
+   * @returns {Promise<String>} The AI's response
+   */
+  async processMessage(simulation, conversationHistory, studentMessage) {
     try {
-      this.conversationHistory.push({
-        role: 'student',
-        content: studentMessage,
-        timestamp: new Date()
-      });
-
-      const messages = this._buildOpenAIMessages(studentMessage);
+      const messages = this._buildOpenAIMessages(simulation, conversationHistory, studentMessage);
 
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4',
@@ -44,46 +45,33 @@ class SimulationEngine {
       });
 
       const aiResponse = response.choices[0].message.content;
+      return aiResponse;
 
-      this.conversationHistory.push({
-        role: 'ai_advisor',
-        content: aiResponse,
-        timestamp: new Date()
-      });
-
-      return {
-        response: aiResponse,
-        conversationId: this.simulationId,
-        messageCount: this.conversationHistory.length
-      };
     } catch (error) {
       console.error('Error processing student input:', error);
       throw new Error(`Failed to process student input: ${error.message}`);
     }
   }
 
-  _buildOpenAIMessages(studentMessage) {
-    const systemPrompt = `You are an AI advisor in an educational business simulation.
+  /**
+   * Build the messages array for OpenAI API
+   * Includes system prompt, conversation history, and new message
+   */
+  _buildOpenAIMessages(simulation, conversationHistory, studentMessage) {
+    // Extract parameters with defaults
+    const params = simulation.parameters || {};
+    const aiMode = params.ai_mode || 'challenger';
+    const complexity = params.complexity || 'escalating';
 
-Scenario: ${this.scenario}
-
-Behavioral Instructions: ${this.instructions}
-
-CRITICAL RULES:
-1. NEVER provide direct answers or solutions
-2. Use the Socratic method - ask probing questions that challenge assumptions
-3. Make students think critically about consequences and trade-offs
-4. Focus on making them discover insights themselves
-5. Challenge their thinking without being dismissive
-6. If they ask for a direct answer, redirect with a thought-provoking question
-
-Remember: Your role is to develop critical thinking, not to provide solutions.`;
+    // Build dynamic system prompt based on simulation configuration
+    const systemPrompt = this._buildSystemPrompt(simulation, aiMode, complexity);
 
     const messages = [
       { role: 'system', content: systemPrompt }
     ];
 
-    this.conversationHistory.forEach(entry => {
+    // Add conversation history
+    conversationHistory.forEach(entry => {
       if (entry.role === 'student') {
         messages.push({ role: 'user', content: entry.content });
       } else if (entry.role === 'ai_advisor') {
@@ -91,94 +79,127 @@ Remember: Your role is to develop critical thinking, not to provide solutions.`;
       }
     });
 
+    // Add new student message
     messages.push({ role: 'user', content: studentMessage });
 
     return messages;
   }
 
-  editScenario(newScenario) {
-    this.scenario = newScenario;
-    this.lastModified = new Date();
-    return {
-      success: true,
-      scenario: this.scenario,
-      lastModified: this.lastModified
-    };
+  /**
+   * Build the system prompt based on simulation configuration
+   */
+  _buildSystemPrompt(simulation, aiMode, complexity) {
+    const scenario = simulation.scenario_text || simulation.scenario || '';
+    const actors = simulation.actors || [];
+    const objectives = simulation.objectives || [];
+
+    // Find the student's actor configuration
+    const studentActor = actors.find(a => a.is_student_role);
+
+    // Find AI actors
+    const aiActors = actors.filter(a => !a.is_student_role);
+
+    let prompt = `You are an AI advisor in an educational business simulation.
+
+SCENARIO:
+${scenario}
+
+`;
+
+    // Add actor information
+    if (studentActor) {
+      prompt += `STUDENT ROLE: ${studentActor.role || studentActor.name}
+`;
+    }
+
+    if (aiActors.length > 0) {
+      prompt += `\nAI CHARACTERS YOU EMBODY:\n`;
+      aiActors.forEach(actor => {
+        prompt += `- ${actor.name || actor.role}`;
+        if (actor.personality_mode) {
+          prompt += ` (${actor.personality_mode})`;
+        }
+        prompt += `\n`;
+      });
+    }
+
+    // Add learning objectives
+    if (objectives.length > 0) {
+      prompt += `\nLEARNING OBJECTIVES:\n`;
+      objectives.forEach(obj => {
+        prompt += `- ${obj}\n`;
+      });
+    }
+
+    // Add AI mode instructions
+    prompt += `\nAI BEHAVIOR MODE: ${aiMode.toUpperCase()}\n`;
+
+    switch (aiMode) {
+      case 'challenger':
+        prompt += `- Actively challenge assumptions and push back on ideas
+- Point out flaws and risks
+- Make the student defend their thinking
+- Be skeptical but not dismissive\n`;
+        break;
+      case 'coach':
+        prompt += `- Guide discovery through supportive questions
+- Encourage exploration of alternatives
+- Provide hints when stuck
+- Build confidence while developing thinking\n`;
+        break;
+      case 'expert':
+        prompt += `- Provide relevant data and context
+- Share domain expertise when asked
+- Clarify complex concepts
+- Balance information giving with questioning\n`;
+        break;
+      case 'adaptive':
+        prompt += `- Adjust approach based on student performance
+- More supportive when struggling, more challenging when confident
+- Vary style to maintain engagement
+- Respond to student's emotional state\n`;
+        break;
+    }
+
+    // Add core pedagogical rules (always apply)
+    prompt += `
+CRITICAL PEDAGOGICAL RULES:
+1. NEVER provide direct answers or solutions
+2. Use the Socratic method - ask probing questions that challenge assumptions
+3. Make students think critically about consequences and trade-offs
+4. Focus on making them discover insights themselves
+5. Challenge their thinking without being dismissive
+6. If they ask for a direct answer, redirect with a thought-provoking question
+7. Help them develop the thinking process, not just reach an answer
+
+COMPLEXITY: ${complexity}
+`;
+
+    if (complexity === 'escalating') {
+      prompt += `- Start with simpler challenges, increase difficulty as they show competence\n`;
+    } else if (complexity === 'adaptive') {
+      prompt += `- Adjust difficulty based on their responses - easier if struggling, harder if excelling\n`;
+    }
+
+    prompt += `\nRemember: Your role is to develop critical thinking, not to provide solutions.`;
+
+    return prompt;
   }
 
-  editInstructions(newInstructions) {
-    this.instructions = newInstructions;
-    this.lastModified = new Date();
-    return {
-      success: true,
-      instructions: this.instructions,
-      lastModified: this.lastModified
-    };
-  }
+  /**
+   * Generate a formatted export of a conversation
+   */
+  formatConversationForExport(simulation, conversationHistory) {
+    let formatted = '';
 
-  editScenarioAndInstructions(newScenario, newInstructions) {
-    this.scenario = newScenario;
-    this.instructions = newInstructions;
-    this.lastModified = new Date();
-    return {
-      success: true,
-      scenario: this.scenario,
-      instructions: this.instructions,
-      lastModified: this.lastModified
-    };
-  }
-
-  getCurrentState() {
-    return {
-      simulationId: this.simulationId,
-      scenario: this.scenario,
-      instructions: this.instructions,
-      conversationHistory: this.conversationHistory,
-      messageCount: this.conversationHistory.length,
-      createdAt: this.createdAt,
-      lastModified: this.lastModified
-    };
-  }
-
-  getConversationHistory() {
-    return this.conversationHistory;
-  }
-
-  getFormattedConversation() {
-    return this.conversationHistory.map(entry => {
+    conversationHistory.forEach(entry => {
       const role = entry.role === 'student' ? 'Student' : 'AI Advisor';
-      const timestamp = entry.timestamp.toLocaleString();
-      return `[${timestamp}] ${role}: ${entry.content}`;
-    }).join('\n\n');
-  }
+      const timestamp = new Date(entry.timestamp).toLocaleString();
+      formatted += `[${timestamp}] ${role}: ${entry.content}\n\n`;
+    });
 
-  exportConversation() {
-    return {
-      simulationId: this.simulationId,
-      scenario: this.scenario,
-      instructions: this.instructions,
-      conversation: this.conversationHistory,
-      metadata: {
-        createdAt: this.createdAt,
-        lastModified: this.lastModified,
-        totalMessages: this.conversationHistory.length,
-        exportedAt: new Date()
-      }
-    };
-  }
-
-  clearConversation() {
-    this.conversationHistory = [];
-    this.lastModified = new Date();
-    return {
-      success: true,
-      message: 'Conversation history cleared'
-    };
+    return formatted;
   }
 }
 
 export default SimulationEngine;
-
-
-
-

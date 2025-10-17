@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import SimulationEngine from '../core/simulation-engine.js';
+import { db } from './database/supabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,11 +17,20 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-let currentSimulation = null;
+// Create a single instance of the simulation engine (stateless)
+const engine = new SimulationEngine();
 
+// ============================================================================
+// PROFESSOR ENDPOINTS - Create and manage simulations
+// ============================================================================
+
+/**
+ * POST /api/professor/setup
+ * Create a new simulation configuration
+ */
 app.post('/api/professor/setup', async (req, res) => {
   try {
-    const { scenario, instructions } = req.body;
+    const { scenario, instructions, name } = req.body;
 
     if (!scenario || !instructions) {
       return res.status(400).json({
@@ -29,12 +39,26 @@ app.post('/api/professor/setup', async (req, res) => {
       });
     }
 
-    currentSimulation = new SimulationEngine(scenario, instructions);
+    // Create simulation in database with basic structure
+    const simulation = await db.createSimulation({
+      name: name || 'Untitled Simulation',
+      scenario_text: scenario,
+      actors: [], // Will be enhanced by setup system later
+      objectives: [], // Will be enhanced by setup system later
+      parameters: {
+        duration: 20,
+        ai_mode: 'challenger',
+        complexity: 'escalating',
+        narrative_freedom: 0.7,
+        // Legacy: store instructions for backwards compatibility
+        instructions: instructions
+      }
+    });
 
     res.status(201).json({
       message: 'Simulation created successfully',
-      simulationId: currentSimulation.simulationId,
-      state: currentSimulation.getCurrentState()
+      simulationId: simulation.id,
+      simulation: simulation
     });
   } catch (error) {
     console.error('Error creating simulation:', error);
@@ -45,16 +69,24 @@ app.post('/api/professor/setup', async (req, res) => {
   }
 });
 
+// ============================================================================
+// STUDENT ENDPOINTS - Interact with simulations
+// ============================================================================
+
+/**
+ * POST /api/student/respond
+ * Send a message in a simulation session
+ * Body: { simulationId, sessionId (optional), studentInput }
+ */
 app.post('/api/student/respond', async (req, res) => {
   try {
-    if (!currentSimulation) {
-      return res.status(404).json({
-        error: 'No active simulation found',
-        message: 'Please ask your professor to set up the simulation first'
+    const { simulationId, sessionId, studentInput } = req.body;
+
+    if (!simulationId) {
+      return res.status(400).json({
+        error: 'simulationId is required'
       });
     }
-
-    const { studentInput } = req.body;
 
     if (!studentInput || typeof studentInput !== 'string' || studentInput.trim() === '') {
       return res.status(400).json({
@@ -62,12 +94,59 @@ app.post('/api/student/respond', async (req, res) => {
       });
     }
 
-    const response = await currentSimulation.processStudentInput(studentInput);
+    // Get simulation configuration
+    const simulation = await db.getSimulation(simulationId);
+
+    if (!simulation) {
+      return res.status(404).json({
+        error: 'Simulation not found',
+        simulationId
+      });
+    }
+
+    // Get or create session
+    let session;
+    if (sessionId) {
+      session = await db.getSession(sessionId);
+      if (!session || session.simulation_id !== simulationId) {
+        return res.status(404).json({
+          error: 'Session not found or does not belong to this simulation'
+        });
+      }
+    } else {
+      // Create new session
+      session = await db.createSession(simulationId);
+    }
+
+    // Process the message with AI
+    const aiResponse = await engine.processMessage(
+      simulation,
+      session.conversation_history,
+      studentInput
+    );
+
+    // Add student message to history
+    await db.addMessageToSession(session.id, {
+      role: 'student',
+      content: studentInput,
+      timestamp: new Date().toISOString()
+    });
+
+    // Add AI response to history
+    const updatedSession = await db.addMessageToSession(session.id, {
+      role: 'ai_advisor',
+      content: aiResponse,
+      timestamp: new Date().toISOString()
+    });
 
     res.status(200).json({
       success: true,
-      ...response
+      response: aiResponse,
+      sessionId: session.id,
+      simulationId: simulation.id,
+      messageCount: updatedSession.conversation_history.length
     });
+
   } catch (error) {
     console.error('Error processing student response:', error);
     res.status(500).json({
@@ -77,36 +156,67 @@ app.post('/api/student/respond', async (req, res) => {
   }
 });
 
+// ============================================================================
+// CONFIGURATION ENDPOINTS - Edit simulations
+// ============================================================================
+
+/**
+ * PATCH /api/professor/edit
+ * Update simulation configuration
+ * Body: { simulationId, scenario?, instructions?, actors?, objectives?, parameters? }
+ */
 app.patch('/api/professor/edit', async (req, res) => {
   try {
-    if (!currentSimulation) {
-      return res.status(404).json({
-        error: 'No active simulation found',
-        message: 'Please set up a simulation first'
-      });
-    }
+    const { simulationId, scenario, instructions, actors, objectives, parameters } = req.body;
 
-    const { scenario, instructions } = req.body;
-
-    if (!scenario && !instructions) {
+    if (!simulationId) {
       return res.status(400).json({
-        error: 'At least one of scenario or instructions must be provided'
+        error: 'simulationId is required'
       });
     }
 
-    let result;
-    if (scenario && instructions) {
-      result = currentSimulation.editScenarioAndInstructions(scenario, instructions);
-    } else if (scenario) {
-      result = currentSimulation.editScenario(scenario);
-    } else {
-      result = currentSimulation.editInstructions(instructions);
+    // Build update object
+    const updates = {};
+
+    if (scenario) {
+      updates.scenario_text = scenario;
     }
+
+    if (actors) {
+      updates.actors = actors;
+    }
+
+    if (objectives) {
+      updates.objectives = objectives;
+    }
+
+    if (parameters || instructions) {
+      // Get current simulation to merge parameters
+      const current = await db.getSimulation(simulationId);
+      updates.parameters = {
+        ...current.parameters,
+        ...parameters
+      };
+
+      // Legacy: support instructions field
+      if (instructions) {
+        updates.parameters.instructions = instructions;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        error: 'At least one field must be provided to update'
+      });
+    }
+
+    const updatedSimulation = await db.updateSimulation(simulationId, updates);
 
     res.status(200).json({
       message: 'Simulation updated successfully',
-      ...result
+      simulation: updatedSimulation
     });
+
   } catch (error) {
     console.error('Error editing simulation:', error);
     res.status(500).json({
@@ -116,17 +226,61 @@ app.patch('/api/professor/edit', async (req, res) => {
   }
 });
 
-app.get('/api/simulation/state', (req, res) => {
+// ============================================================================
+// STATE & EXPORT ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/simulation/state
+ * Get current state of a simulation or session
+ * Query: simulationId (required), sessionId (optional)
+ */
+app.get('/api/simulation/state', async (req, res) => {
   try {
-    if (!currentSimulation) {
-      return res.status(404).json({
-        error: 'No active simulation found',
-        message: 'No simulation has been set up yet'
+    const { simulationId, sessionId } = req.query;
+
+    if (!simulationId) {
+      return res.status(400).json({
+        error: 'simulationId query parameter is required'
       });
     }
 
-    const state = currentSimulation.getCurrentState();
-    res.status(200).json(state);
+    const simulation = await db.getSimulation(simulationId);
+
+    if (!simulation) {
+      return res.status(404).json({
+        error: 'Simulation not found'
+      });
+    }
+
+    // If sessionId provided, include session data
+    if (sessionId) {
+      const session = await db.getSession(sessionId);
+
+      if (!session || session.simulation_id !== simulationId) {
+        return res.status(404).json({
+          error: 'Session not found or does not belong to this simulation'
+        });
+      }
+
+      res.status(200).json({
+        simulation: simulation,
+        session: {
+          id: session.id,
+          state: session.state,
+          conversationHistory: session.conversation_history,
+          messageCount: session.conversation_history.length,
+          startedAt: session.started_at,
+          lastActivityAt: session.last_activity_at
+        }
+      });
+    } else {
+      // Just return simulation configuration
+      res.status(200).json({
+        simulation: simulation
+      });
+    }
+
   } catch (error) {
     console.error('Error getting simulation state:', error);
     res.status(500).json({
@@ -136,34 +290,63 @@ app.get('/api/simulation/state', (req, res) => {
   }
 });
 
-app.get('/api/simulation/export', (req, res) => {
+/**
+ * GET /api/simulation/export
+ * Export a simulation session
+ * Query: sessionId (required), format (optional: 'json' or 'text')
+ */
+app.get('/api/simulation/export', async (req, res) => {
   try {
-    if (!currentSimulation) {
-      return res.status(404).json({
-        error: 'No active simulation found',
-        message: 'No simulation to export'
+    const { sessionId, format } = req.query;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        error: 'sessionId query parameter is required'
       });
     }
 
-    const exportData = currentSimulation.exportConversation();
+    const session = await db.getSession(sessionId);
 
-    const format = req.query.format;
+    if (!session) {
+      return res.status(404).json({
+        error: 'Session not found'
+      });
+    }
+
+    const simulation = session.simulations; // Joined from database query
+
+    const exportData = {
+      sessionId: session.id,
+      simulationId: simulation.id,
+      simulationName: simulation.name,
+      scenario: simulation.scenario_text,
+      conversation: session.conversation_history,
+      metadata: {
+        startedAt: session.started_at,
+        completedAt: session.completed_at,
+        totalMessages: session.conversation_history.length,
+        exportedAt: new Date().toISOString()
+      }
+    };
+
     if (format === 'text') {
       res.setHeader('Content-Type', 'text/plain');
-      res.setHeader('Content-Disposition', `attachment; filename="simulation-${exportData.simulationId}.txt"`);
+      res.setHeader('Content-Disposition', `attachment; filename="session-${session.id}.txt"`);
 
-      let textExport = `Simulation Export - ${exportData.simulationId}\n`;
-      textExport += `Created: ${exportData.metadata.createdAt}\n`;
-      textExport += `Exported: ${exportData.metadata.exportedAt}\n`;
-      textExport += `\n=== Scenario ===\n${exportData.scenario}\n`;
-      textExport += `\n=== AI Instructions ===\n${exportData.instructions}\n`;
-      textExport += `\n=== Conversation ===\n`;
-      textExport += currentSimulation.getFormattedConversation();
+      let textExport = `Simulation Session Export\n`;
+      textExport += `Session ID: ${session.id}\n`;
+      textExport += `Simulation: ${simulation.name}\n`;
+      textExport += `Started: ${new Date(session.started_at).toLocaleString()}\n`;
+      textExport += `Exported: ${new Date().toLocaleString()}\n`;
+      textExport += `\n=== SCENARIO ===\n${simulation.scenario_text}\n`;
+      textExport += `\n=== CONVERSATION ===\n`;
+      textExport += engine.formatConversationForExport(simulation, session.conversation_history);
 
       res.status(200).send(textExport);
     } else {
       res.status(200).json(exportData);
     }
+
   } catch (error) {
     console.error('Error exporting simulation:', error);
     res.status(500).json({
@@ -173,34 +356,37 @@ app.get('/api/simulation/export', (req, res) => {
   }
 });
 
-app.delete('/api/simulation/clear', (req, res) => {
+/**
+ * DELETE /api/simulation/clear
+ * Clear or delete simulation/session
+ * Query: sessionId (to clear session) OR simulationId (to delete simulation)
+ */
+app.delete('/api/simulation/clear', async (req, res) => {
   try {
-    if (!currentSimulation) {
-      return res.status(404).json({
-        error: 'No active simulation found',
-        message: 'No simulation to clear'
+    const { sessionId, simulationId } = req.query;
+
+    if (!sessionId && !simulationId) {
+      return res.status(400).json({
+        error: 'Either sessionId or simulationId query parameter is required'
       });
     }
 
-    const clearConversation = req.query.conversation === 'true';
-    const clearAll = req.query.all === 'true';
-
-    if (clearAll) {
-      currentSimulation = null;
+    if (sessionId) {
+      // Delete specific session
+      await db.deleteSession(sessionId);
       res.status(200).json({
         success: true,
-        message: 'Simulation completely cleared'
+        message: 'Session deleted successfully'
       });
-    } else if (clearConversation) {
-      const result = currentSimulation.clearConversation();
-      res.status(200).json(result);
-    } else {
-      currentSimulation = null;
+    } else if (simulationId) {
+      // Delete simulation (cascades to sessions)
+      await db.deleteSimulation(simulationId);
       res.status(200).json({
         success: true,
-        message: 'Simulation cleared'
+        message: 'Simulation and all associated sessions deleted successfully'
       });
     }
+
   } catch (error) {
     console.error('Error clearing simulation:', error);
     res.status(500).json({
@@ -210,13 +396,50 @@ app.delete('/api/simulation/clear', (req, res) => {
   }
 });
 
+/**
+ * GET /api/simulations
+ * List all simulations (optionally filtered)
+ * Query: is_template (optional boolean)
+ */
+app.get('/api/simulations', async (req, res) => {
+  try {
+    const filters = {};
+
+    if (req.query.is_template !== undefined) {
+      filters.is_template = req.query.is_template === 'true';
+    }
+
+    const simulations = await db.listSimulations(filters);
+
+    res.status(200).json({
+      simulations: simulations,
+      count: simulations.length
+    });
+
+  } catch (error) {
+    console.error('Error listing simulations:', error);
+    res.status(500).json({
+      error: 'Failed to list simulations',
+      details: error.message
+    });
+  }
+});
+
+// ============================================================================
+// HEALTH CHECK
+// ============================================================================
+
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date(),
-    hasActiveSimulation: !!currentSimulation
+    database: 'connected'
   });
 });
+
+// ============================================================================
+// ERROR HANDLERS
+// ============================================================================
 
 app.use((req, res) => {
   res.status(404).json({
@@ -234,15 +457,21 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ============================================================================
+// START SERVER
+// ============================================================================
+
 app.listen(PORT, () => {
-  console.log(`Windo API Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`\n🚀 Windo API Server running on port ${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`💾 Database: Connected to Supabase\n`);
   console.log('Available endpoints:');
-  console.log('  POST   /api/professor/setup');
-  console.log('  POST   /api/student/respond');
-  console.log('  PATCH  /api/professor/edit');
-  console.log('  GET    /api/simulation/state');
-  console.log('  GET    /api/simulation/export');
-  console.log('  DELETE /api/simulation/clear');
-  console.log('  GET    /api/health');
+  console.log('  POST   /api/professor/setup       - Create simulation');
+  console.log('  POST   /api/student/respond       - Send message in session');
+  console.log('  PATCH  /api/professor/edit        - Update simulation');
+  console.log('  GET    /api/simulation/state      - Get simulation/session state');
+  console.log('  GET    /api/simulation/export     - Export session conversation');
+  console.log('  DELETE /api/simulation/clear      - Delete session/simulation');
+  console.log('  GET    /api/simulations           - List all simulations');
+  console.log('  GET    /api/health                - Health check\n');
 });
