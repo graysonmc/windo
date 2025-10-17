@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import SimulationEngine from '../core/simulation-engine.js';
 import { db } from './database/supabase.js';
+import ScenarioParser from './services/scenario-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,6 +20,49 @@ app.use(express.json());
 
 // Create a single instance of the simulation engine (stateless)
 const engine = new SimulationEngine();
+
+// Create a single instance of the scenario parser
+const parser = new ScenarioParser();
+
+// ============================================================================
+// SETUP ENDPOINTS - Parse and configure simulations
+// ============================================================================
+
+/**
+ * POST /api/setup/parse
+ * Parse scenario text using AI to extract actors, objectives, and configuration
+ * Body: { scenario_text }
+ */
+app.post('/api/setup/parse', async (req, res) => {
+  try {
+    const { scenario_text } = req.body;
+
+    if (!scenario_text || typeof scenario_text !== 'string' || scenario_text.trim() === '') {
+      return res.status(400).json({
+        error: 'scenario_text is required and must be a non-empty string'
+      });
+    }
+
+    // Use AI to parse the scenario
+    const parseResult = await parser.parseScenario(scenario_text);
+
+    // Validate actors
+    const actorValidation = parser.validateActors(parseResult.parsed.actors);
+
+    res.status(200).json({
+      success: true,
+      ...parseResult,
+      actor_validation: actorValidation
+    });
+
+  } catch (error) {
+    console.error('Error parsing scenario:', error);
+    res.status(500).json({
+      error: 'Failed to parse scenario',
+      details: error.message
+    });
+  }
+});
 
 // ============================================================================
 // PROFESSOR ENDPOINTS - Create and manage simulations
@@ -466,6 +510,7 @@ app.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`💾 Database: Connected to Supabase\n`);
   console.log('Available endpoints:');
+  console.log('  POST   /api/setup/parse           - Parse scenario with AI');
   console.log('  POST   /api/professor/setup       - Create simulation');
   console.log('  POST   /api/student/respond       - Send message in session');
   console.log('  PATCH  /api/professor/edit        - Update simulation');
