@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { Search, Plus, Settings, User, TrendingUp, Clock, Users, Play, Bookmark, Heart, MessageCircle, BarChart3, Calendar, FileText, Folder, Repeat2, Share2, Coins } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Settings, User, TrendingUp, Clock, Users, Play, Bookmark, Heart, MessageCircle, BarChart3, Calendar, FileText, Folder, Repeat2, Share2, Coins, X, AlertCircle } from 'lucide-react';
 import SimulationBuilder from '../components/SimulationBuilder';
+import axios from 'axios';
+
+const API_BASE = 'http://localhost:3000/api';
 
 export default function WindoHomePage() {
   const [activeTab, setActiveTab] = useState('for-you');
@@ -8,6 +11,19 @@ export default function WindoHomePage() {
   const [showProfile, setShowProfile] = useState(false);
   const [showBuildModal, setShowBuildModal] = useState(false);
   const [mySimsView, setMySimsView] = useState('created');
+
+  // Real data from backend
+  const [mySimulations, setMySimulations] = useState([]);
+  const [participationHistory, setParticipationHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Session detail modal
+  const [showSessionDetail, setShowSessionDetail] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
+
+  // Edit simulation state
+  const [editingSimulation, setEditingSimulation] = useState(null);
 
   const forYouSimulations = [
     {
@@ -132,143 +148,7 @@ export default function WindoHomePage() {
     }
   ];
 
-  const participationHistory = [
-    {
-      id: 1,
-      title: "AI Ethics in Healthcare Decision-Making",
-      creator: "Prof. Sarah Chen",
-      avatar: "SC",
-      subject: "Medical Ethics",
-      difficulty: "Advanced",
-      duration: "60-75 min",
-      participants: 156,
-      timestamp: "Completed 3 days ago",
-      description: "Navigate complex ethical decisions as a hospital administrator implementing AI diagnostic tools. Balance accuracy, bias, patient autonomy, and regulatory compliance.",
-      hashtags: ["#AIEthics", "#Healthcare", "#Innovation", "#PatientCare"],
-      objectives: ["Ethical Framework", "AI Governance", "Stakeholder Management"],
-      thumbnail: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      creditCost: 150,
-      likes: 45,
-      comments: 12,
-      reposts: 8,
-      userProgress: 100,
-      score: 87
-    },
-    {
-      id: 2,
-      title: "Cryptocurrency Exchange Crisis",
-      creator: "Prof. Michael Torres",
-      avatar: "MT",
-      subject: "Financial Technology",
-      difficulty: "Intermediate",
-      duration: "45-60 min",
-      participants: 203,
-      timestamp: "In Progress",
-      description: "Manage a security breach at a major crypto exchange. Make real-time decisions about user communication, fund recovery, and regulatory reporting.",
-      hashtags: ["#Fintech", "#CyberSecurity", "#CrisisManagement", "#Blockchain"],
-      objectives: ["Crisis Response", "Risk Management", "Regulatory Compliance"],
-      thumbnail: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-      creditCost: 120,
-      likes: 89,
-      comments: 23,
-      reposts: 15,
-      userProgress: 65,
-      score: null
-    },
-    {
-      id: 3,
-      title: "The Zara Pink Scarf Surge",
-      creator: "Prof. Sarah Chen",
-      avatar: "SC",
-      subject: "Supply Chain Management",
-      difficulty: "Intermediate",
-      duration: "45-60 min",
-      participants: 234,
-      timestamp: "Completed 1 week ago",
-      description: "Navigate a sudden demand spike as CEO of Zara. Make critical decisions about inventory, production, and distribution under time pressure.",
-      hashtags: ["#SupplyChain", "#Retail", "#Operations", "#Strategy"],
-      objectives: ["Financial Modeling", "Risk Assessment", "Strategic Decision-Making"],
-      thumbnail: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-      creditCost: 110,
-      likes: 342,
-      comments: 78,
-      reposts: 45,
-      userProgress: 100,
-      score: 92
-    }
-  ];
-
-  const mySimulations = [
-    {
-      id: 1,
-      title: "Climate Change Policy Simulation",
-      creator: "You",
-      avatar: "JD",
-      subject: "Environmental Policy",
-      status: "Published",
-      students: 45,
-      lastActive: "2 days ago",
-      completionRate: 78,
-      timestamp: "Published 2 weeks ago",
-      description: "Lead policy negotiations as a UN climate delegate. Balance national interests with global climate goals in high-stakes negotiations.",
-      hashtags: ["#Climate", "#Policy", "#Negotiations", "#Sustainability"],
-      objectives: ["Diplomatic Strategy", "Trade-off Analysis", "Coalition Building"],
-      thumbnail: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-      difficulty: "Advanced",
-      duration: "60-90 min",
-      participants: 45,
-      creditCost: 165,
-      likes: 234,
-      comments: 56,
-      reposts: 32
-    },
-    {
-      id: 2,
-      title: "Startup Funding Negotiation",
-      creator: "You",
-      avatar: "JD",
-      subject: "Entrepreneurship",
-      status: "Draft",
-      students: 0,
-      lastActive: "1 week ago",
-      completionRate: 0,
-      timestamp: "Draft",
-      description: "Navigate Series A funding negotiations as a startup founder. Balance valuation, equity, and strategic partnership opportunities.",
-      hashtags: ["#Startups", "#Fundraising", "#Negotiation", "#VC"],
-      objectives: ["Financial Modeling", "Negotiation Tactics", "Term Sheet Analysis"],
-      thumbnail: "linear-gradient(135deg, #ee0979 0%, #ff6a00 100%)",
-      difficulty: "Intermediate",
-      duration: "45-60 min",
-      participants: 0,
-      creditCost: 125,
-      likes: 0,
-      comments: 0,
-      reposts: 0
-    },
-    {
-      id: 3,
-      title: "Global Supply Chain Crisis",
-      creator: "You",
-      avatar: "JD",
-      subject: "Operations Management",
-      status: "Published",
-      students: 89,
-      lastActive: "Today",
-      completionRate: 92,
-      timestamp: "Published 1 month ago",
-      description: "Manage a multinational supply chain disruption as COO. Make real-time decisions on logistics, supplier relationships, and inventory.",
-      hashtags: ["#SupplyChain", "#Operations", "#Crisis", "#Logistics"],
-      objectives: ["Systems Thinking", "Risk Mitigation", "Stakeholder Communication"],
-      thumbnail: "linear-gradient(135deg, #134e5e 0%, #71b280 100%)",
-      difficulty: "Advanced",
-      duration: "75-90 min",
-      participants: 89,
-      creditCost: 180,
-      likes: 412,
-      comments: 98,
-      reposts: 67
-    }
-  ];
+  // Mock data removed - now fetched from backend via useEffect
 
   const myContextItems = [
     {
@@ -293,6 +173,197 @@ export default function WindoHomePage() {
       lastModified: "3 days ago"
     }
   ];
+
+  // Fetch simulations created by the user
+  useEffect(() => {
+    if (activeTab === 'my-simulations' && mySimsView === 'created') {
+      fetchMySimulations();
+    }
+  }, [activeTab, mySimsView]);
+
+  // Fetch participation history
+  useEffect(() => {
+    if (activeTab === 'my-simulations' && mySimsView === 'participation') {
+      fetchParticipationHistory();
+    }
+  }, [activeTab, mySimsView]);
+
+  const fetchMySimulations = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE}/professor/simulations`);
+      const transformed = response.data.simulations.map(sim => transformSimulationToUI(sim));
+      setMySimulations(transformed);
+    } catch (error) {
+      console.error('Error fetching simulations:', error);
+      setMySimulations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchParticipationHistory = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE}/student/sessions`);
+      const transformed = response.data.sessions.map(session => transformSessionToUI(session));
+      setParticipationHistory(transformed);
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      setParticipationHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to format relative time
+  const getRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const daysDiff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff === 0) return 'Today';
+    if (daysDiff === 1) return 'Yesterday';
+    if (daysDiff < 7) return `${daysDiff} days ago`;
+    if (daysDiff < 30) return `${Math.floor(daysDiff / 7)} weeks ago`;
+    return `${Math.floor(daysDiff / 30)} months ago`;
+  };
+
+  // Transform database simulation to UI format
+  const transformSimulationToUI = (sim) => {
+    const gradients = [
+      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+      "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+      "linear-gradient(135deg, #ee0979 0%, #ff6a00 100%)",
+      "linear-gradient(135deg, #134e5e 0%, #71b280 100%)",
+      "linear-gradient(135deg, #fa709a 0%, #fee140 100%)"
+    ];
+    const gradientIndex = Math.abs(sim.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % gradients.length;
+
+    const objectives = Array.isArray(sim.objectives) && sim.objectives.length > 0 ? sim.objectives.slice(0, 3) : ['General'];
+    const duration = sim.parameters?.duration || 30;
+    const durationStr = `${duration}-${duration + 15} min`;
+
+    const difficultyMap = { 'linear': 'Beginner', 'escalating': 'Intermediate', 'adaptive': 'Advanced' };
+    const difficulty = difficultyMap[sim.parameters?.complexity] || 'Intermediate';
+
+    const relativeTime = getRelativeTime(sim.created_at);
+
+    return {
+      id: sim.id,
+      title: sim.name || 'Untitled Simulation',
+      creator: 'You',
+      avatar: 'YO',
+      subject: 'Custom Simulation',
+      status: 'Published',
+      students: 0,
+      lastActive: relativeTime,
+      completionRate: 0,
+      timestamp: `Created ${relativeTime}`,
+      description: sim.scenario_text?.substring(0, 150) || 'No description available',
+      hashtags: sim.parameters?.ai_mode ? [`#${sim.parameters.ai_mode}`] : ['#Simulation'],
+      objectives: objectives,
+      thumbnail: gradients[gradientIndex],
+      difficulty: difficulty,
+      duration: durationStr,
+      participants: sim.usage_count || 0,
+      creditCost: 'N/A',
+      likes: 'N/A',
+      comments: 'N/A',
+      reposts: 'N/A'
+    };
+  };
+
+  // Edit simulation
+  const editSimulation = async (simulationId) => {
+    try {
+      // Fetch full simulation details
+      const response = await axios.get(`${API_BASE}/simulation/state`, {
+        params: { simulationId }
+      });
+
+      console.log('Fetched simulation for editing:', response.data.simulation);
+      setEditingSimulation(response.data.simulation);
+      setShowBuildModal(true);
+    } catch (error) {
+      console.error('Error fetching simulation for editing:', error);
+    }
+  };
+
+  // View session detail
+  const viewSessionDetail = async (sessionId, simulationId) => {
+    setSessionDetailLoading(true);
+    setShowSessionDetail(true);
+
+    try {
+      // Fetch full session details including conversation history
+      const response = await axios.get(`${API_BASE}/simulation/state`, {
+        params: {
+          simulationId: simulationId,
+          sessionId: sessionId
+        }
+      });
+
+      setSelectedSession(response.data);
+    } catch (error) {
+      console.error('Error fetching session details:', error);
+      setSelectedSession(null);
+    } finally {
+      setSessionDetailLoading(false);
+    }
+  };
+
+  // Transform database session to UI format
+  const transformSessionToUI = (session) => {
+    const sim = session.simulations;
+    const gradients = [
+      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+      "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+      "linear-gradient(135deg, #ee0979 0%, #ff6a00 100%)",
+      "linear-gradient(135deg, #134e5e 0%, #71b280 100%)",
+      "linear-gradient(135deg, #fa709a 0%, #fee140 100%)"
+    ];
+    const gradientIndex = Math.abs(session.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % gradients.length;
+
+    const messageCount = session.conversation_history?.length || 0;
+    const targetDuration = sim?.parameters?.duration || 30;
+    const progress = Math.min(100, Math.floor((messageCount / targetDuration) * 100));
+
+    const objectives = Array.isArray(sim?.objectives) && sim.objectives.length > 0 ? sim.objectives.slice(0, 3) : ['General'];
+    const duration = sim?.parameters?.duration || 30;
+    const durationStr = `${duration}-${duration + 15} min`;
+
+    const difficultyMap = { 'linear': 'Beginner', 'escalating': 'Intermediate', 'adaptive': 'Advanced' };
+    const difficulty = difficultyMap[sim?.parameters?.complexity] || 'Intermediate';
+
+    const relativeTime = getRelativeTime(session.started_at);
+    const timestamp = session.state === 'active' ? 'In Progress' : `Completed ${relativeTime}`;
+
+    return {
+      id: session.id,
+      simulationId: sim?.id, // Store simulation ID for fetching details
+      title: sim?.name || 'Untitled Simulation',
+      creator: 'System',
+      avatar: 'SY',
+      subject: 'Custom Simulation',
+      difficulty: difficulty,
+      duration: durationStr,
+      participants: sim?.usage_count || 0,
+      timestamp: timestamp,
+      description: sim?.scenario_text?.substring(0, 150) || 'No description available',
+      hashtags: sim?.parameters?.ai_mode ? [`#${sim.parameters.ai_mode}`] : ['#Simulation'],
+      objectives: objectives,
+      thumbnail: gradients[gradientIndex],
+      creditCost: 'N/A',
+      likes: 'N/A',
+      comments: 'N/A',
+      reposts: 'N/A',
+      userProgress: progress,
+      score: session.state === 'completed' ? 'N/A' : null
+    };
+  };
 
   const renderContent = () => {
     switch(activeTab) {
@@ -564,8 +635,43 @@ export default function WindoHomePage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {currentSimulations.map((sim) => (
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading {mySimsView === 'created' ? 'simulations' : 'sessions'}...</p>
+                </div>
+              </div>
+            ) : currentSimulations.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  {mySimsView === 'created' ? (
+                    <Plus className="w-8 h-8 text-gray-400" />
+                  ) : (
+                    <Play className="w-8 h-8 text-gray-400" />
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {mySimsView === 'created' ? 'No simulations yet' : 'No participation history'}
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {mySimsView === 'created'
+                    ? 'Get started by creating your first simulation'
+                    : 'Your completed and in-progress simulations will appear here'}
+                </p>
+                {mySimsView === 'created' && (
+                  <button
+                    onClick={() => setShowBuildModal(true)}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Create Your First Simulation
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {currentSimulations.map((sim) => (
                 <div key={sim.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 overflow-hidden group">
                   <div style={{ background: sim.thumbnail }} className="h-32 relative">
                     {mySimsView === 'created' ? (
@@ -679,19 +785,26 @@ export default function WindoHomePage() {
                         </button>
                       </div>
                       {mySimsView === 'created' ? (
-                        <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
+                        <button
+                          onClick={() => editSimulation(sim.id)}
+                          className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                        >
                           Edit
                         </button>
                       ) : (
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                          {sim.userProgress === 100 ? 'Review' : 'Continue'}
+                        <button
+                          onClick={() => viewSessionDetail(sim.id, sim.simulationId)}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          View
                         </button>
                       )}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 
@@ -810,7 +923,20 @@ export default function WindoHomePage() {
       </div>
 
       {showBuildModal && (
-        <SimulationBuilder onClose={() => setShowBuildModal(false)} />
+        <SimulationBuilder
+          onClose={() => {
+            setShowBuildModal(false);
+            setEditingSimulation(null);
+          }}
+          onSimulationCreated={() => {
+            // Refetch simulations when a new one is created or updated
+            if (activeTab === 'my-simulations' && mySimsView === 'created') {
+              fetchMySimulations();
+            }
+            setEditingSimulation(null);
+          }}
+          editSimulation={editingSimulation}
+        />
       )}
 
       {showSettings && (
@@ -837,6 +963,145 @@ export default function WindoHomePage() {
           <div className="space-y-2 pt-4 border-t border-gray-100">
             <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 text-gray-700">View Profile</button>
             <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 text-gray-700">Edit Profile</button>
+          </div>
+        </div>
+      )}
+
+      {showSessionDetail && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Session Details</h2>
+              <button
+                onClick={() => setShowSessionDetail(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {sessionDetailLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading session details...</p>
+                  </div>
+                </div>
+              ) : selectedSession ? (
+                <div className="space-y-6">
+                  {/* Simulation Info */}
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      {selectedSession.simulation?.name || 'Untitled Simulation'}
+                    </h3>
+                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        <span>
+                          Started {new Date(selectedSession.session?.startedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className={`px-2 py-1 rounded text-xs font-medium ${
+                        selectedSession.session?.state === 'completed'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {selectedSession.session?.state === 'completed' ? 'Completed' : 'In Progress'}
+                      </div>
+                      <div className="text-gray-600">
+                        {selectedSession.session?.messageCount || 0} messages
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Description */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Scenario Description</h4>
+                    <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed">
+                      {selectedSession.simulation?.scenario_text || 'No description available'}
+                    </div>
+                  </div>
+
+                  {/* Objectives */}
+                  {selectedSession.simulation?.objectives && selectedSession.simulation.objectives.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2">Learning Objectives</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedSession.simulation.objectives.map((obj, idx) => (
+                          <span
+                            key={idx}
+                            className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-md font-medium"
+                          >
+                            {obj}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Chat History */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Conversation History</h4>
+                    {selectedSession.session?.conversationHistory && selectedSession.session.conversationHistory.length > 0 ? (
+                      <div className="space-y-4">
+                        {selectedSession.session.conversationHistory.map((message, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex ${message.role === 'student' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                                message.role === 'student'
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-semibold opacity-75">
+                                  {message.role === 'student' ? 'You' : 'AI Advisor'}
+                                </span>
+                                {message.timestamp && (
+                                  <span className="text-xs opacity-60">
+                                    {new Date(message.timestamp).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm leading-relaxed">{message.content}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-8 text-center">
+                        <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-600">No conversation history yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-red-50 rounded-lg p-8 text-center">
+                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                  <p className="text-red-700">Failed to load session details</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowSessionDetail(false)}
+                className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

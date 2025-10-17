@@ -177,6 +177,38 @@ export const db = {
 
     if (error) throw error;
     return data;
+  },
+
+  async listSessionsByStudent(studentId) {
+    const { data, error } = await supabase
+      .from('simulation_sessions')
+      .select('*, simulations(*)')
+      .eq('student_id', studentId)
+      .order('started_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async listAllSessions(filters = {}) {
+    let query = supabase
+      .from('simulation_sessions')
+      .select('*, simulations(*)');
+
+    if (filters.student_id) {
+      query = query.eq('student_id', filters.student_id);
+    }
+
+    if (filters.state) {
+      query = query.eq('state', filters.state);
+    }
+
+    query = query.order('started_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data;
   }
 };
 

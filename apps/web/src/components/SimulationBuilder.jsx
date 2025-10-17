@@ -7,24 +7,52 @@ import axios from 'axios';
 
 const API_BASE = 'http://localhost:3000/api';
 
-export default function SimulationBuilder({ onClose }) {
+export default function SimulationBuilder({ onClose, onSimulationCreated, editSimulation }) {
   // Multi-step flow: input -> parse -> review -> customize -> deploy
-  const [step, setStep] = useState('input'); // input, parsing, review, customize, deploy, testing
-  const [scenarioText, setScenarioText] = useState('');
+  const [step, setStep] = useState(editSimulation ? 'customize' : 'input'); // Skip to customize if editing
+  const [scenarioText, setScenarioText] = useState(editSimulation?.scenario_text || '');
   const [parsedData, setParsedData] = useState(null);
-  const [actors, setActors] = useState([]);
-  const [objectives, setObjectives] = useState([]);
-  const [parameters, setParameters] = useState({});
-  const [simulationName, setSimulationName] = useState('');
+  const [actors, setActors] = useState(editSimulation?.actors || []);
+  const [objectives, setObjectives] = useState(editSimulation?.objectives || []);
+
+  // Initialize parameters with defaults for edit mode
+  const [parameters, setParameters] = useState(() => {
+    if (editSimulation?.parameters) {
+      return {
+        duration: editSimulation.parameters.duration || 30,
+        ai_mode: editSimulation.parameters.ai_mode || 'challenger',
+        complexity: editSimulation.parameters.complexity || 'escalating',
+        narrative_freedom: editSimulation.parameters.narrative_freedom || 0.7,
+        ...editSimulation.parameters
+      };
+    }
+    return {};
+  });
+
+  const [simulationName, setSimulationName] = useState(editSimulation?.name || '');
 
   // Testing state (for optional test step)
   const [messages, setMessages] = useState([]);
   const [studentInput, setStudentInput] = useState('');
   const [sessionId, setSessionId] = useState(null);
-  const [simulationId, setSimulationId] = useState(null);
+  const [simulationId, setSimulationId] = useState(editSimulation?.id || null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isEditMode, setIsEditMode] = useState(!!editSimulation);
+
+  // Debug: Log edit simulation data
+  React.useEffect(() => {
+    if (editSimulation) {
+      console.log('Edit Mode - Simulation Data:', {
+        name: simulationName,
+        actors: actors,
+        objectives: objectives,
+        parameters: parameters,
+        scenarioText: scenarioText
+      });
+    }
+  }, [editSimulation]);
 
   // Available objectives (from PRD)
   const availableObjectives = [
@@ -72,19 +100,44 @@ export default function SimulationBuilder({ onClose }) {
     setError('');
 
     try {
-      const response = await axios.post(`${API_BASE}/professor/setup`, {
-        name: simulationName || 'Untitled Simulation',
-        scenario: scenarioText,
-        instructions: `AI Behavior: ${parameters.ai_mode}. ${parameters.reasoning}`,
-        actors,
-        objectives,
-        parameters
-      });
+      if (isEditMode) {
+        // Update existing simulation
+        const response = await axios.patch(`${API_BASE}/professor/edit`, {
+          simulationId: simulationId,
+          name: simulationName,
+          scenario: scenarioText,
+          actors,
+          objectives,
+          parameters
+        });
 
-      setSimulationId(response.data.simulationId);
-      setStep('deploy');
+        setStep('deploy');
+
+        // Notify parent component that simulation was updated
+        if (onSimulationCreated) {
+          onSimulationCreated();
+        }
+      } else {
+        // Create new simulation
+        const response = await axios.post(`${API_BASE}/professor/setup`, {
+          name: simulationName || 'Untitled Simulation',
+          scenario: scenarioText,
+          instructions: `AI Behavior: ${parameters.ai_mode}. ${parameters.reasoning}`,
+          actors,
+          objectives,
+          parameters
+        });
+
+        setSimulationId(response.data.simulationId);
+        setStep('deploy');
+
+        // Notify parent component that a simulation was created
+        if (onSimulationCreated) {
+          onSimulationCreated();
+        }
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create simulation');
+      setError(err.response?.data?.error || `Failed to ${isEditMode ? 'update' : 'create'} simulation`);
     } finally {
       setLoading(false);
     }
@@ -209,8 +262,8 @@ export default function SimulationBuilder({ onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Create Simulation</h2>
-            <p className="text-sm text-gray-600 mt-1">Build an AI-powered learning experience</p>
+            <h2 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Simulation' : 'Create Simulation'}</h2>
+            <p className="text-sm text-gray-600 mt-1">{isEditMode ? 'Update your AI-powered learning experience' : 'Build an AI-powered learning experience'}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="w-5 h-5" />
@@ -416,6 +469,20 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                 />
               </div>
 
+              {/* Scenario Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Scenario Description
+                </label>
+                <textarea
+                  value={scenarioText}
+                  onChange={(e) => setScenarioText(e.target.value)}
+                  placeholder="Describe the scenario students will navigate..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={6}
+                />
+              </div>
+
               {/* Edit Actors */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -557,27 +624,29 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setStep('review')}
-                  className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  <ArrowLeft className="w-4 h-4 inline mr-2" />
-                  Back
-                </button>
+                {!isEditMode && (
+                  <button
+                    onClick={() => setStep('review')}
+                    className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4 inline mr-2" />
+                    Back
+                  </button>
+                )}
                 <button
                   onClick={createSimulation}
                   disabled={loading || !simulationName.trim()}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className={`${isEditMode ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium`}
                 >
                   {loading ? (
                     <>
                       <Loader className="w-4 h-4 animate-spin" />
-                      Creating...
+                      {isEditMode ? 'Updating...' : 'Creating...'}
                     </>
                   ) : (
                     <>
                       <CheckCircle className="w-5 h-5" />
-                      Create Simulation
+                      {isEditMode ? 'Update Simulation' : 'Create Simulation'}
                     </>
                   )}
                 </button>
@@ -591,9 +660,9 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle className="w-10 h-10 text-green-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Simulation Created!</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">{isEditMode ? 'Simulation Updated!' : 'Simulation Created!'}</h3>
               <p className="text-gray-600 text-center max-w-md mb-6">
-                Your simulation is ready. You can test it now or close this window.
+                {isEditMode ? 'Your changes have been saved. You can test the updated simulation or close this window.' : 'Your simulation is ready. You can test it now or close this window.'}
               </p>
               <div className="flex gap-3">
                 <button

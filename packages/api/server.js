@@ -74,7 +74,7 @@ app.post('/api/setup/parse', async (req, res) => {
  */
 app.post('/api/professor/setup', async (req, res) => {
   try {
-    const { scenario, instructions, name } = req.body;
+    const { scenario, instructions, name, actors, objectives, parameters } = req.body;
 
     if (!scenario || !instructions) {
       return res.status(400).json({
@@ -83,17 +83,18 @@ app.post('/api/professor/setup', async (req, res) => {
       });
     }
 
-    // Create simulation in database with basic structure
+    // Create simulation in database with data from setup system
     const simulation = await db.createSimulation({
       name: name || 'Untitled Simulation',
       scenario_text: scenario,
-      actors: [], // Will be enhanced by setup system later
-      objectives: [], // Will be enhanced by setup system later
+      actors: actors || [],
+      objectives: objectives || [],
       parameters: {
-        duration: 20,
-        ai_mode: 'challenger',
-        complexity: 'escalating',
-        narrative_freedom: 0.7,
+        duration: parameters?.duration || 20,
+        ai_mode: parameters?.ai_mode || 'challenger',
+        complexity: parameters?.complexity || 'escalating',
+        narrative_freedom: parameters?.narrative_freedom || 0.7,
+        ...parameters,
         // Legacy: store instructions for backwards compatibility
         instructions: instructions
       }
@@ -207,11 +208,11 @@ app.post('/api/student/respond', async (req, res) => {
 /**
  * PATCH /api/professor/edit
  * Update simulation configuration
- * Body: { simulationId, scenario?, instructions?, actors?, objectives?, parameters? }
+ * Body: { simulationId, name?, scenario?, instructions?, actors?, objectives?, parameters? }
  */
 app.patch('/api/professor/edit', async (req, res) => {
   try {
-    const { simulationId, scenario, instructions, actors, objectives, parameters } = req.body;
+    const { simulationId, name, scenario, instructions, actors, objectives, parameters } = req.body;
 
     if (!simulationId) {
       return res.status(400).json({
@@ -221,6 +222,10 @@ app.patch('/api/professor/edit', async (req, res) => {
 
     // Build update object
     const updates = {};
+
+    if (name) {
+      updates.name = name;
+    }
 
     if (scenario) {
       updates.scenario_text = scenario;
@@ -469,6 +474,68 @@ app.get('/api/simulations', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/professor/simulations
+ * Get simulations created by a professor
+ * Query: created_by (optional - professor ID/username)
+ */
+app.get('/api/professor/simulations', async (req, res) => {
+  try {
+    const filters = { is_template: false };
+
+    if (req.query.created_by) {
+      filters.created_by = req.query.created_by;
+    }
+
+    const simulations = await db.listSimulations(filters);
+
+    res.status(200).json({
+      simulations: simulations,
+      count: simulations.length
+    });
+
+  } catch (error) {
+    console.error('Error listing professor simulations:', error);
+    res.status(500).json({
+      error: 'Failed to list simulations',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/student/sessions
+ * Get simulation sessions for a student
+ * Query: student_id (optional), state (optional)
+ */
+app.get('/api/student/sessions', async (req, res) => {
+  try {
+    const filters = {};
+
+    if (req.query.student_id) {
+      filters.student_id = req.query.student_id;
+    }
+
+    if (req.query.state) {
+      filters.state = req.query.state;
+    }
+
+    const sessions = await db.listAllSessions(filters);
+
+    res.status(200).json({
+      sessions: sessions,
+      count: sessions.length
+    });
+
+  } catch (error) {
+    console.error('Error listing student sessions:', error);
+    res.status(500).json({
+      error: 'Failed to list sessions',
+      details: error.message
+    });
+  }
+});
+
 // ============================================================================
 // HEALTH CHECK
 // ============================================================================
@@ -518,5 +585,7 @@ app.listen(PORT, () => {
   console.log('  GET    /api/simulation/export     - Export session conversation');
   console.log('  DELETE /api/simulation/clear      - Delete session/simulation');
   console.log('  GET    /api/simulations           - List all simulations');
+  console.log('  GET    /api/professor/simulations - List professor simulations');
+  console.log('  GET    /api/student/sessions      - List student sessions');
   console.log('  GET    /api/health                - Health check\n');
 });
