@@ -81,19 +81,42 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
     setStep('parsing');
 
     try {
-      let textToProcess = scenarioText;
+      let response;
 
-      // If document uploaded, read its content
+      // Check if file is uploaded and needs server-side processing
       if (uploadedFile) {
-        textToProcess = await readFileContent(uploadedFile);
-      }
+        const fileExtension = uploadedFile.name.split('.').pop().toLowerCase();
+        const needsServerProcessing = ['pdf', 'docx', 'doc'].includes(fileExtension);
 
-      const response = await axios.post(`${API_BASE}/setup/parse`, {
-        scenario_text: textToProcess,
-        document_instructions: documentInstructions || undefined,
-        has_document: !!uploadedFile,
-        document_name: uploadedFile?.name || undefined
-      });
+        if (needsServerProcessing) {
+          // Use file upload endpoint for PDF and DOCX
+          const formData = new FormData();
+          formData.append('file', uploadedFile);
+          if (documentInstructions) {
+            formData.append('document_instructions', documentInstructions);
+          }
+
+          response = await axios.post(`${API_BASE}/setup/parse-file`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+        } else {
+          // For TXT files, read locally and use text endpoint
+          const textToProcess = await readFileContent(uploadedFile);
+          response = await axios.post(`${API_BASE}/setup/parse`, {
+            scenario_text: textToProcess,
+            document_instructions: documentInstructions || undefined,
+            has_document: true,
+            document_name: uploadedFile.name
+          });
+        }
+      } else {
+        // No file uploaded, use scenario text
+        response = await axios.post(`${API_BASE}/setup/parse`, {
+          scenario_text: scenarioText
+        });
+      }
 
       setParsedData(response.data);
       setActors(response.data.parsed.actors);
@@ -107,14 +130,14 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
 
       setStep('review');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to parse scenario');
+      setError(err.response?.data?.details || err.response?.data?.error || 'Failed to parse scenario');
       setStep('input');
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper function to read file content
+  // Helper function to read file content (for TXT files)
   const readFileContent = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -336,77 +359,67 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                 </div>
               </div>
 
-              {/* OR Divider */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">OR</span>
-                </div>
-              </div>
-
               {/* Document Upload */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
-                <div className="text-center">
-                  <FileText className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-4">
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      <span className="mt-2 block text-sm font-medium text-gray-900">
-                        Upload Case Study Document
-                      </span>
-                      <span className="mt-1 block text-xs text-gray-500">
-                        PDF, DOCX, TXT up to 10MB
-                      </span>
-                      <input
-                        id="file-upload"
-                        name="file-upload"
-                        type="file"
-                        accept=".pdf,.docx,.doc,.txt"
-                        className="sr-only"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setUploadedFile(e.target.files[0]);
-                          }
-                        }}
-                      />
-                      <div className="mt-4">
-                        <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                          <Upload className="w-4 h-4 mr-2" />
-                          Choose File
+              <div>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                  <div className="text-center">
+                    <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-4">
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <span className="mt-2 block text-sm font-medium text-gray-900">
+                          Upload File
                         </span>
-                      </div>
-                    </label>
-                  </div>
-
-                  {uploadedFile && (
-                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
-                      <FileText className="w-4 h-4" />
-                      <span className="font-medium">{uploadedFile.name}</span>
-                      <button
-                        onClick={() => setUploadedFile(null)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                        <span className="mt-1 block text-xs text-gray-500">
+                          PDF, DOCX, TXT up to 10MB
+                        </span>
+                        <input
+                          id="file-upload"
+                          name="file-upload"
+                          type="file"
+                          accept=".pdf,.docx,.doc,.txt"
+                          className="sr-only"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setUploadedFile(e.target.files[0]);
+                            }
+                          }}
+                        />
+                        <div className="mt-4">
+                          <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            <Upload className="w-4 h-4 mr-2" />
+                            Choose File
+                          </span>
+                        </div>
+                      </label>
                     </div>
-                  )}
+
+                    {uploadedFile && (
+                      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+                        <FileText className="w-4 h-4" />
+                        <span className="font-medium">{uploadedFile.name}</span>
+                        <button
+                          onClick={() => setUploadedFile(null)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {uploadedFile && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Document Instructions
-                    </label>
-                    <textarea
-                      value={documentInstructions}
-                      onChange={(e) => setDocumentInstructions(e.target.value)}
-                      placeholder="How should the AI use this document? (e.g., 'Extract key decisions and stakeholders', 'Use as context for the simulation scenario')"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      rows={3}
-                    />
-                  </div>
-                )}
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    File Instructions
+                  </label>
+                  <textarea
+                    value={documentInstructions}
+                    onChange={(e) => setDocumentInstructions(e.target.value)}
+                    placeholder="How should the AI use this file? (e.g., 'Extract key decisions and stakeholders', 'Use as context for the simulation scenario')"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    rows={3}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3">
@@ -583,6 +596,74 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={6}
                 />
+              </div>
+
+              {/* Document Upload */}
+              <div>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                  <div className="text-center">
+                    <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-4">
+                      <label htmlFor="file-upload-customize" className="cursor-pointer">
+                        <span className="mt-2 block text-sm font-medium text-gray-900">
+                          Upload File
+                        </span>
+                        <span className="mt-1 block text-xs text-gray-500">
+                          PDF, DOCX, TXT up to 10MB
+                        </span>
+                        <input
+                          id="file-upload-customize"
+                          name="file-upload-customize"
+                          type="file"
+                          accept=".pdf,.docx,.doc,.txt"
+                          className="sr-only"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setUploadedFile(e.target.files[0]);
+                            }
+                          }}
+                        />
+                        <div className="mt-4">
+                          <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            <Upload className="w-4 h-4 mr-2" />
+                            Choose File
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
+                    {uploadedFile ? (
+                      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+                        <FileText className="w-4 h-4" />
+                        <span className="font-medium">{uploadedFile.name}</span>
+                        <button
+                          onClick={() => setUploadedFile(null)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : parameters.document_name ? (
+                      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-500">
+                        <FileText className="w-4 h-4" />
+                        <span>Previously: {parameters.document_name}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    File Instructions
+                  </label>
+                  <textarea
+                    value={documentInstructions}
+                    onChange={(e) => setDocumentInstructions(e.target.value)}
+                    placeholder="How should the AI use this file? (e.g., 'Extract key decisions and stakeholders', 'Use as context for the simulation scenario')"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    rows={3}
+                  />
+                </div>
               </div>
 
               {/* Edit Actors */}

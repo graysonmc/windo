@@ -2,6 +2,10 @@ import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
+import mammoth from 'mammoth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -79,23 +83,29 @@ class DocumentProcessor {
   }
 
   /**
-   * Extract text from PDF using OpenAI
-   * Note: For MVP, we'll ask user to copy-paste. Full PDF extraction requires additional libraries.
+   * Extract text from PDF using pdf-parse
    */
   async _extractFromPDF(fileBuffer) {
-    // For now, return a message asking for text extraction
-    // In production, you'd use pdf-parse or similar library
-    throw new Error('PDF support coming soon. Please convert to text or paste content directly.');
+    try {
+      const data = await pdfParse(fileBuffer);
+      return data.text;
+    } catch (error) {
+      console.error('Error extracting PDF:', error);
+      throw new Error(`Failed to extract PDF content: ${error.message}`);
+    }
   }
 
   /**
-   * Extract text from DOCX using OpenAI
-   * Note: For MVP, we'll ask user to copy-paste. Full DOCX extraction requires additional libraries.
+   * Extract text from DOCX using mammoth
    */
   async _extractFromDOCX(fileBuffer) {
-    // For now, return a message asking for text extraction
-    // In production, you'd use mammoth or similar library
-    throw new Error('DOCX support coming soon. Please convert to text or paste content directly.');
+    try {
+      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      return result.value;
+    } catch (error) {
+      console.error('Error extracting DOCX:', error);
+      throw new Error(`Failed to extract DOCX content: ${error.message}`);
+    }
   }
 
   /**

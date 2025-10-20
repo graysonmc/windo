@@ -3,9 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import multer from 'multer';
 import SimulationEngine from '../core/simulation-engine.js';
 import { db } from './database/supabase.js';
 import ScenarioParser from './services/scenario-parser.js';
+import DocumentProcessor from './services/document-processor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,11 +20,36 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Configure multer for file uploads (in-memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'text/plain',
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword'
+    ];
+    if (allowedTypes.includes(file.mimetype) ||
+        file.originalname.match(/\.(txt|pdf|docx|doc)$/)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only TXT, PDF, and DOCX files are allowed.'));
+    }
+  }
+});
+
 // Create a single instance of the simulation engine (stateless)
 const engine = new SimulationEngine();
 
 // Create a single instance of the scenario parser
 const parser = new ScenarioParser();
+
+// Create a single instance of the document processor
+const documentProcessor = new DocumentProcessor();
 
 // ============================================================================
 // SETUP ENDPOINTS - Parse and configure simulations
@@ -59,6 +86,57 @@ app.post('/api/setup/parse', async (req, res) => {
     console.error('Error parsing scenario:', error);
     res.status(500).json({
       error: 'Failed to parse scenario',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/setup/parse-file
+ * Parse uploaded file (PDF, DOCX, TXT) and extract scenario information
+ * Form data: { file, document_instructions }
+ */
+app.post('/api/setup/parse-file', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'No file uploaded'
+      });
+    }
+
+    const { document_instructions } = req.body;
+
+    console.log(`Processing file: ${req.file.originalname} (${req.file.mimetype})`);
+
+    // Process the document using DocumentProcessor
+    const processedDoc = await documentProcessor.processDocument(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      document_instructions || ''
+    );
+
+    // Use the extracted text to parse the scenario
+    const parseResult = await parser.parseScenario(processedDoc.rawText);
+
+    // Validate actors
+    const actorValidation = parser.validateActors(parseResult.parsed.actors);
+
+    res.status(200).json({
+      success: true,
+      ...parseResult,
+      actor_validation: actorValidation,
+      document: {
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        extractedLength: processedDoc.rawText.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing file:', error);
+    res.status(500).json({
+      error: 'Failed to process file',
       details: error.message
     });
   }
