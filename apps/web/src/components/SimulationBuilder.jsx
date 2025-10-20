@@ -718,6 +718,339 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                           </button>
                         </div>
                       </div>
+
+                      {/* Triggers Section */}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Behavioral Triggers</label>
+                        <div className="space-y-2">
+                          {(actor.triggers || []).map((trigger, triggerIdx) => (
+                            <div key={triggerIdx} className="bg-white border border-gray-200 rounded p-2 space-y-1.5">
+                              <div className="flex gap-1">
+                                <select
+                                  value={trigger.trigger_type || 'keyword'}
+                                  onChange={(e) => {
+                                    const newTriggers = [...(actor.triggers || [])];
+                                    newTriggers[triggerIdx] = {
+                                      ...newTriggers[triggerIdx],
+                                      trigger_type: e.target.value,
+                                      condition: '' // Reset condition when type changes
+                                    };
+                                    updateActor(idx, 'triggers', newTriggers);
+                                  }}
+                                  className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                >
+                                  <option value="keyword">Keyword</option>
+                                  <option value="sentiment">Sentiment</option>
+                                  <option value="message_count">Message Count</option>
+                                  <option value="time_elapsed">Time Elapsed</option>
+                                </select>
+                                <button
+                                  onClick={() => {
+                                    const newTriggers = (actor.triggers || []).filter((_, i) => i !== triggerIdx);
+                                    updateActor(idx, 'triggers', newTriggers);
+                                  }}
+                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              {/* Condition input (changes based on trigger type) */}
+                              <input
+                                type="text"
+                                value={trigger.condition || ''}
+                                onChange={(e) => {
+                                  const newTriggers = [...(actor.triggers || [])];
+                                  newTriggers[triggerIdx] = { ...newTriggers[triggerIdx], condition: e.target.value };
+                                  updateActor(idx, 'triggers', newTriggers);
+                                }}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder={
+                                  trigger.trigger_type === 'keyword' ? 'Enter keyword to watch for (e.g., "pricing", "competitor")' :
+                                  trigger.trigger_type === 'sentiment' ? 'Enter sentiment threshold (e.g., "frustrated", "confident")' :
+                                  trigger.trigger_type === 'message_count' ? 'Enter message count (e.g., "5")' :
+                                  trigger.trigger_type === 'time_elapsed' ? 'Enter minutes (e.g., "10")' :
+                                  'Enter condition'
+                                }
+                              />
+
+                              {/* Action textarea */}
+                              <textarea
+                                value={trigger.action || ''}
+                                onChange={(e) => {
+                                  const newTriggers = [...(actor.triggers || [])];
+                                  newTriggers[triggerIdx] = { ...newTriggers[triggerIdx], action: e.target.value };
+                                  updateActor(idx, 'triggers', newTriggers);
+                                }}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="What should this actor do when triggered?"
+                                rows={2}
+                              />
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              const newTriggers = [...(actor.triggers || []), {
+                                trigger_type: 'keyword',
+                                condition: '',
+                                action: ''
+                              }];
+                              updateActor(idx, 'triggers', newTriggers);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Trigger
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Personality Traits Section */}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-2">Personality Traits</label>
+                        <div className="space-y-2">
+                          {/* Aggressive ↔ Passive */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-500">Passive</span>
+                              <span className="font-medium text-gray-700">
+                                {actor.personality_traits?.aggressive_passive !== undefined ?
+                                  (actor.personality_traits.aggressive_passive < 30 ? 'Very Passive' :
+                                   actor.personality_traits.aggressive_passive < 45 ? 'Passive' :
+                                   actor.personality_traits.aggressive_passive < 55 ? 'Balanced' :
+                                   actor.personality_traits.aggressive_passive < 70 ? 'Assertive' : 'Very Assertive')
+                                  : 'Balanced'}
+                              </span>
+                              <span className="text-gray-500">Assertive</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={actor.personality_traits?.aggressive_passive || 50}
+                              onChange={(e) => {
+                                const traits = { ...(actor.personality_traits || {}), aggressive_passive: parseInt(e.target.value) };
+                                updateActor(idx, 'personality_traits', traits);
+                              }}
+                              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
+
+                          {/* Cooperative ↔ Antagonistic */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-500">Antagonistic</span>
+                              <span className="font-medium text-gray-700">
+                                {actor.personality_traits?.cooperative_antagonistic !== undefined ?
+                                  (actor.personality_traits.cooperative_antagonistic < 30 ? 'Very Antagonistic' :
+                                   actor.personality_traits.cooperative_antagonistic < 45 ? 'Resistant' :
+                                   actor.personality_traits.cooperative_antagonistic < 55 ? 'Neutral' :
+                                   actor.personality_traits.cooperative_antagonistic < 70 ? 'Cooperative' : 'Very Cooperative')
+                                  : 'Neutral'}
+                              </span>
+                              <span className="text-gray-500">Cooperative</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={actor.personality_traits?.cooperative_antagonistic || 50}
+                              onChange={(e) => {
+                                const traits = { ...(actor.personality_traits || {}), cooperative_antagonistic: parseInt(e.target.value) };
+                                updateActor(idx, 'personality_traits', traits);
+                              }}
+                              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
+
+                          {/* Analytical ↔ Intuitive */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-500">Intuitive</span>
+                              <span className="font-medium text-gray-700">
+                                {actor.personality_traits?.analytical_intuitive !== undefined ?
+                                  (actor.personality_traits.analytical_intuitive < 30 ? 'Very Intuitive' :
+                                   actor.personality_traits.analytical_intuitive < 45 ? 'Intuitive' :
+                                   actor.personality_traits.analytical_intuitive < 55 ? 'Balanced' :
+                                   actor.personality_traits.analytical_intuitive < 70 ? 'Analytical' : 'Very Analytical')
+                                  : 'Balanced'}
+                              </span>
+                              <span className="text-gray-500">Analytical</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={actor.personality_traits?.analytical_intuitive || 50}
+                              onChange={(e) => {
+                                const traits = { ...(actor.personality_traits || {}), analytical_intuitive: parseInt(e.target.value) };
+                                updateActor(idx, 'personality_traits', traits);
+                              }}
+                              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
+
+                          {/* Formal ↔ Casual */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-500">Casual</span>
+                              <span className="font-medium text-gray-700">
+                                {actor.personality_traits?.formal_casual !== undefined ?
+                                  (actor.personality_traits.formal_casual < 30 ? 'Very Casual' :
+                                   actor.personality_traits.formal_casual < 45 ? 'Casual' :
+                                   actor.personality_traits.formal_casual < 55 ? 'Balanced' :
+                                   actor.personality_traits.formal_casual < 70 ? 'Formal' : 'Very Formal')
+                                  : 'Balanced'}
+                              </span>
+                              <span className="text-gray-500">Formal</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={actor.personality_traits?.formal_casual || 50}
+                              onChange={(e) => {
+                                const traits = { ...(actor.personality_traits || {}), formal_casual: parseInt(e.target.value) };
+                                updateActor(idx, 'personality_traits', traits);
+                              }}
+                              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
+
+                          {/* Patient ↔ Impatient */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-500">Impatient</span>
+                              <span className="font-medium text-gray-700">
+                                {actor.personality_traits?.patient_impatient !== undefined ?
+                                  (actor.personality_traits.patient_impatient < 30 ? 'Very Impatient' :
+                                   actor.personality_traits.patient_impatient < 45 ? 'Impatient' :
+                                   actor.personality_traits.patient_impatient < 55 ? 'Balanced' :
+                                   actor.personality_traits.patient_impatient < 70 ? 'Patient' : 'Very Patient')
+                                  : 'Balanced'}
+                              </span>
+                              <span className="text-gray-500">Patient</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={actor.personality_traits?.patient_impatient || 50}
+                              onChange={(e) => {
+                                const traits = { ...(actor.personality_traits || {}), patient_impatient: parseInt(e.target.value) };
+                                updateActor(idx, 'personality_traits', traits);
+                              }}
+                              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Loyalties & Alliances Section */}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Loyalties & Alliances</label>
+                        <div className="space-y-1">
+                          {/* Supports */}
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-0.5">Supports / Allies:</label>
+                            <div className="flex flex-wrap gap-1 mb-1">
+                              {actors.filter((_, i) => i !== idx).map((otherActor, otherIdx) => {
+                                const actualIdx = otherIdx >= idx ? otherIdx + 1 : otherIdx;
+                                const isSupported = (actor.loyalties?.supports || []).includes(otherActor.name || otherActor.role);
+                                return (
+                                  <button
+                                    key={actualIdx}
+                                    onClick={() => {
+                                      const supports = actor.loyalties?.supports || [];
+                                      const actorName = otherActor.name || otherActor.role;
+                                      const newSupports = isSupported
+                                        ? supports.filter(n => n !== actorName)
+                                        : [...supports, actorName];
+                                      updateActor(idx, 'loyalties', { ...(actor.loyalties || {}), supports: newSupports });
+                                    }}
+                                    className={`px-2 py-0.5 text-xs rounded ${
+                                      isSupported ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                    }`}
+                                  >
+                                    {otherActor.name || otherActor.role}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Opposes */}
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-0.5">Opposes / Rivals:</label>
+                            <div className="flex flex-wrap gap-1">
+                              {actors.filter((_, i) => i !== idx).map((otherActor, otherIdx) => {
+                                const actualIdx = otherIdx >= idx ? otherIdx + 1 : otherIdx;
+                                const isOpposed = (actor.loyalties?.opposes || []).includes(otherActor.name || otherActor.role);
+                                return (
+                                  <button
+                                    key={actualIdx}
+                                    onClick={() => {
+                                      const opposes = actor.loyalties?.opposes || [];
+                                      const actorName = otherActor.name || otherActor.role;
+                                      const newOpposes = isOpposed
+                                        ? opposes.filter(n => n !== actorName)
+                                        : [...opposes, actorName];
+                                      updateActor(idx, 'loyalties', { ...(actor.loyalties || {}), opposes: newOpposes });
+                                    }}
+                                    className={`px-2 py-0.5 text-xs rounded ${
+                                      isOpposed ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+                                    }`}
+                                  >
+                                    {otherActor.name || otherActor.role}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Priorities Section */}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Priorities (in order of importance)</label>
+                        <div className="space-y-1">
+                          {(actor.priorities || []).map((priority, priorityIdx) => (
+                            <div key={priorityIdx} className="flex gap-1 items-center">
+                              <span className="text-xs text-gray-400 font-medium w-4">{priorityIdx + 1}.</span>
+                              <input
+                                type="text"
+                                value={priority}
+                                onChange={(e) => {
+                                  const newPriorities = [...(actor.priorities || [])];
+                                  newPriorities[priorityIdx] = e.target.value;
+                                  updateActor(idx, 'priorities', newPriorities);
+                                }}
+                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="What matters most to this actor?"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newPriorities = (actor.priorities || []).filter((_, i) => i !== priorityIdx);
+                                  updateActor(idx, 'priorities', newPriorities);
+                                }}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              const newPriorities = [...(actor.priorities || []), ''];
+                              updateActor(idx, 'priorities', newPriorities);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Priority
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
