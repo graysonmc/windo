@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Play, Send, X, AlertCircle, CheckCircle, Sparkles, ArrowRight, ArrowLeft,
-  Users, Target, Settings, Loader, Edit, Trash2, Plus
+  Users, Target, Settings, Loader, Edit, Trash2, Plus, Upload, FileText
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -14,6 +14,11 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
   const [parsedData, setParsedData] = useState(null);
   const [actors, setActors] = useState(editSimulation?.actors || []);
   const [objectives, setObjectives] = useState(editSimulation?.objectives || []);
+
+  // Document upload state
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [documentInstructions, setDocumentInstructions] = useState(editSimulation?.parameters?.document_instructions || '');
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
   // Initialize parameters with defaults for edit mode
   const [parameters, setParameters] = useState(() => {
@@ -76,14 +81,28 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
     setStep('parsing');
 
     try {
+      let textToProcess = scenarioText;
+
+      // If document uploaded, read its content
+      if (uploadedFile) {
+        textToProcess = await readFileContent(uploadedFile);
+      }
+
       const response = await axios.post(`${API_BASE}/setup/parse`, {
-        scenario_text: scenarioText
+        scenario_text: textToProcess,
+        document_instructions: documentInstructions || undefined,
+        has_document: !!uploadedFile,
+        document_name: uploadedFile?.name || undefined
       });
 
       setParsedData(response.data);
       setActors(response.data.parsed.actors);
       setObjectives(response.data.parsed.suggested_objectives);
-      setParameters(response.data.suggested_parameters);
+      setParameters({
+        ...response.data.suggested_parameters,
+        document_instructions: documentInstructions || undefined,
+        document_name: uploadedFile?.name || undefined
+      });
       setSimulationName(`${response.data.parsed.scenario_type.replace('_', ' ')} Simulation`);
 
       setStep('review');
@@ -93,6 +112,16 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to read file content
+  const readFileContent = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = (e) => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
   };
 
   const createSimulation = async () => {
@@ -307,6 +336,79 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                 </div>
               </div>
 
+              {/* OR Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">OR</span>
+                </div>
+              </div>
+
+              {/* Document Upload */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="text-center">
+                  <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-4">
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <span className="mt-2 block text-sm font-medium text-gray-900">
+                        Upload Case Study Document
+                      </span>
+                      <span className="mt-1 block text-xs text-gray-500">
+                        PDF, DOCX, TXT up to 10MB
+                      </span>
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        accept=".pdf,.docx,.doc,.txt"
+                        className="sr-only"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setUploadedFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                      <div className="mt-4">
+                        <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                          <Upload className="w-4 h-4 mr-2" />
+                          Choose File
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {uploadedFile && (
+                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+                      <FileText className="w-4 h-4" />
+                      <span className="font-medium">{uploadedFile.name}</span>
+                      <button
+                        onClick={() => setUploadedFile(null)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {uploadedFile && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Document Instructions
+                    </label>
+                    <textarea
+                      value={documentInstructions}
+                      onChange={(e) => setDocumentInstructions(e.target.value)}
+                      placeholder="How should the AI use this document? (e.g., 'Extract key decisions and stakeholders', 'Use as context for the simulation scenario')"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      rows={3}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3">
                 <button
                   onClick={onClose}
@@ -316,11 +418,11 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                 </button>
                 <button
                   onClick={parseScenario}
-                  disabled={!scenarioText.trim() || loading}
+                  disabled={(!scenarioText.trim() && !uploadedFile) || loading}
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   <Sparkles className="w-5 h-5" />
-                  Parse with AI
+                  {uploadedFile ? 'Extract & Parse Document' : 'Parse with AI'}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -498,10 +600,10 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                     Add Actor
                   </button>
                 </div>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="space-y-3 max-h-96 overflow-y-auto">
                   {actors.map((actor, idx) => (
                     <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-3 mb-3">
                         <div className="flex-1 space-y-2">
                           <input
                             type="text"
@@ -534,6 +636,88 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+
+                      {/* Goals Section */}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Goals & Motivations</label>
+                        <div className="space-y-1">
+                          {(actor.goals || []).map((goal, goalIdx) => (
+                            <div key={goalIdx} className="flex gap-1">
+                              <input
+                                type="text"
+                                value={goal}
+                                onChange={(e) => {
+                                  const newGoals = [...(actor.goals || [])];
+                                  newGoals[goalIdx] = e.target.value;
+                                  updateActor(idx, 'goals', newGoals);
+                                }}
+                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="What does this actor want to achieve?"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newGoals = (actor.goals || []).filter((_, i) => i !== goalIdx);
+                                  updateActor(idx, 'goals', newGoals);
+                                }}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              const newGoals = [...(actor.goals || []), ''];
+                              updateActor(idx, 'goals', newGoals);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Goal
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Hidden Information Section */}
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Hidden Information</label>
+                        <div className="space-y-1">
+                          {(actor.hidden_info || []).map((info, infoIdx) => (
+                            <div key={infoIdx} className="flex gap-1">
+                              <input
+                                type="text"
+                                value={info}
+                                onChange={(e) => {
+                                  const newHiddenInfo = [...(actor.hidden_info || [])];
+                                  newHiddenInfo[infoIdx] = e.target.value;
+                                  updateActor(idx, 'hidden_info', newHiddenInfo);
+                                }}
+                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder="Information this actor knows but student doesn't"
+                              />
+                              <button
+                                onClick={() => {
+                                  const newHiddenInfo = (actor.hidden_info || []).filter((_, i) => i !== infoIdx);
+                                  updateActor(idx, 'hidden_info', newHiddenInfo);
+                                }}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => {
+                              const newHiddenInfo = [...(actor.hidden_info || []), ''];
+                              updateActor(idx, 'hidden_info', newHiddenInfo);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Hidden Info
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -545,7 +729,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                   <Target className="w-5 h-5 text-gray-700" />
                   <h3 className="font-medium text-gray-900">Learning Objectives</h3>
                 </div>
-                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 bg-gray-50 rounded-lg">
+                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 bg-gray-50 rounded-lg mb-2">
                   {availableObjectives.map(obj => (
                     <button
                       key={obj}
@@ -559,6 +743,52 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                       {obj}
                     </button>
                   ))}
+                </div>
+
+                {/* Custom objectives that were added */}
+                {objectives.filter(obj => !availableObjectives.includes(obj)).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {objectives.filter(obj => !availableObjectives.includes(obj)).map(obj => (
+                      <div key={obj} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg">
+                        <span>{obj}</span>
+                        <button
+                          onClick={() => setObjectives(objectives.filter(o => o !== obj))}
+                          className="hover:bg-green-700 rounded p-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add custom objective */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Add custom objective..."
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && e.target.value.trim()) {
+                        if (!objectives.includes(e.target.value.trim())) {
+                          setObjectives([...objectives, e.target.value.trim()]);
+                        }
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      const input = e.target.previousElementSibling;
+                      if (input.value.trim() && !objectives.includes(input.value.trim())) {
+                        setObjectives([...objectives, input.value.trim()]);
+                        input.value = '';
+                      }
+                    }}
+                    className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
@@ -580,6 +810,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                       <option value="coach">Coach</option>
                       <option value="expert">Expert</option>
                       <option value="adaptive">Adaptive</option>
+                      <option value="custom">Custom</option>
                     </select>
                   </div>
                   <div>
@@ -621,6 +852,23 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                     </div>
                   </div>
                 </div>
+
+                {/* Custom Instructions (only show when AI mode is "custom") */}
+                {parameters.ai_mode === 'custom' && (
+                  <div className="mt-3">
+                    <label className="block text-sm text-gray-700 mb-1">Custom AI Instructions</label>
+                    <textarea
+                      value={parameters.custom_instructions || ''}
+                      onChange={(e) => setParameters({...parameters, custom_instructions: e.target.value})}
+                      placeholder="Define how the AI should behave in this simulation..."
+                      className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={4}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Provide specific instructions for AI behavior. This replaces the default mode instructions.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">

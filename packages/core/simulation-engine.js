@@ -106,6 +106,16 @@ ${scenario}
 
 `;
 
+    // Add document context if present
+    const params = simulation.parameters || {};
+    if (params.document_name) {
+      prompt += `SOURCE DOCUMENT: ${params.document_name}\n`;
+      if (params.document_instructions) {
+        prompt += `Document Context: ${params.document_instructions}\n`;
+      }
+      prompt += `\n`;
+    }
+
     // Add actor information
     if (studentActor) {
       prompt += `STUDENT ROLE: ${studentActor.role || studentActor.name}
@@ -115,11 +125,34 @@ ${scenario}
     if (aiActors.length > 0) {
       prompt += `\nAI CHARACTERS YOU EMBODY:\n`;
       aiActors.forEach(actor => {
-        prompt += `- ${actor.name || actor.role}`;
+        prompt += `\n${actor.name || actor.role}`;
+        if (actor.role && actor.name !== actor.role) {
+          prompt += ` (${actor.role})`;
+        }
         if (actor.personality_mode) {
-          prompt += ` (${actor.personality_mode})`;
+          prompt += ` - ${actor.personality_mode} personality`;
         }
         prompt += `\n`;
+
+        // Add goals if present
+        if (actor.goals && actor.goals.length > 0) {
+          prompt += `  Goals:\n`;
+          actor.goals.forEach(goal => {
+            if (goal && goal.trim()) {
+              prompt += `    - ${goal}\n`;
+            }
+          });
+        }
+
+        // Add hidden information if present
+        if (actor.hidden_info && actor.hidden_info.length > 0) {
+          prompt += `  Hidden Information (reveal strategically when relevant):\n`;
+          actor.hidden_info.forEach(info => {
+            if (info && info.trim()) {
+              prompt += `    - ${info}\n`;
+            }
+          });
+        }
       });
     }
 
@@ -158,6 +191,13 @@ ${scenario}
 - More supportive when struggling, more challenging when confident
 - Vary style to maintain engagement
 - Respond to student's emotional state\n`;
+        break;
+      case 'custom':
+        // Use custom instructions from parameters
+        const customInstructions = simulation.parameters?.custom_instructions || simulation.parameters?.instructions;
+        if (customInstructions) {
+          prompt += `${customInstructions}\n`;
+        }
         break;
     }
 

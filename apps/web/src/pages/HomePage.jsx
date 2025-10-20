@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Settings, User, TrendingUp, Clock, Users, Play, Bookmark, Heart, MessageCircle, BarChart3, Calendar, FileText, Folder, Repeat2, Share2, Coins, X, AlertCircle } from 'lucide-react';
+import { Search, Plus, Settings, User, TrendingUp, Clock, Users, Play, Bookmark, Heart, MessageCircle, BarChart3, Calendar, FileText, Folder, Repeat2, Share2, Coins, X, AlertCircle, Trash2 } from 'lucide-react';
 import SimulationBuilder from '../components/SimulationBuilder';
 import axios from 'axios';
 
@@ -311,6 +311,44 @@ export default function WindoHomePage() {
       setSelectedSession(null);
     } finally {
       setSessionDetailLoading(false);
+    }
+  };
+
+  // Delete simulation
+  const deleteSimulation = async (simulationId) => {
+    if (!window.confirm('Are you sure you want to delete this simulation? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_BASE}/simulation/clear`, {
+        params: { simulationId }
+      });
+
+      // Refresh the list
+      fetchMySimulations();
+    } catch (error) {
+      console.error('Error deleting simulation:', error);
+      alert('Failed to delete simulation. Please try again.');
+    }
+  };
+
+  // Delete session
+  const deleteSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to delete this session? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_BASE}/simulation/clear`, {
+        params: { sessionId }
+      });
+
+      // Refresh the list
+      fetchParticipationHistory();
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      alert('Failed to delete session. Please try again.');
     }
   };
 
@@ -785,19 +823,37 @@ export default function WindoHomePage() {
                         </button>
                       </div>
                       {mySimsView === 'created' ? (
-                        <button
-                          onClick={() => editSimulation(sim.id)}
-                          className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                        >
-                          Edit
-                        </button>
+                        <>
+                          <button
+                            onClick={() => editSimulation(sim.id)}
+                            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteSimulation(sim.id)}
+                            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </>
                       ) : (
-                        <button
-                          onClick={() => viewSessionDetail(sim.id, sim.simulationId)}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                        >
-                          View
-                        </button>
+                        <>
+                          <button
+                            onClick={() => viewSessionDetail(sim.id, sim.simulationId)}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => deleteSession(sim.id)}
+                            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

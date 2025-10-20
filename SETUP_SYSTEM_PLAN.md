@@ -3,7 +3,45 @@
 ## Overview
 The Windo Setup System is a multi-phase implementation that transforms static business case studies into dynamic, AI-driven learning experiences. This document tracks all phases, completed work, and remaining tasks.
 
-**Last Updated:** October 17, 2025
+**Last Updated:** October 20, 2025
+
+---
+
+## 🎉 Recent Updates (Oct 20, 2025)
+
+### ✅ Completed Features
+
+**Phase 1 Enhancements:**
+- ✅ **Custom AI Mode** - Added "custom" option with custom instructions field
+- ✅ **Custom Learning Objectives** - Users can add objectives beyond predefined list
+- ✅ **Delete Functionality** - Delete buttons for simulations and sessions with confirmation
+- ✅ **Document Upload System** - Upload .txt case studies with AI extraction
+- ✅ **Enhanced Actor System** - Goals and hidden information for each actor
+
+**Phase 4.1 (Partial):**
+- ✅ **Actor Goals** - Define what each actor wants to achieve
+- ✅ **Hidden Information** - Information actors know but students don't
+- ✅ **Goals/Hidden Info UI** - Full CRUD interface in customize step
+- ✅ **SimulationEngine Integration** - Goals/hidden info included in AI prompts
+
+**Database & API:**
+- ✅ All new features automatically save to database (JSONB flexibility)
+- ✅ Edit mode properly loads and saves all extended actor data
+- ✅ DELETE endpoints work for both simulations and sessions
+
+### ⏳ In Progress / Pending
+
+**Phase 4.2-4.3 (Not Started):**
+- ❌ Triggers system (keyword, sentiment, time-based)
+- ❌ Personality trait sliders (aggressive ↔ passive, etc.)
+- ❌ Loyalty networks (who sides with whom)
+- ❌ Priority rankings (ordered list of importance)
+- ❌ Trigger evaluation logic in SimulationEngine
+
+**Future Enhancements:**
+- PDF/DOCX document support (currently TXT only)
+- Template library (skipped per decision)
+- AI assistant setup (skipped per decision)
 
 ---
 
@@ -700,7 +738,131 @@ GET /api/simulation/state?simulationId={id}&sessionId={id}
 
 ---
 
-### 1.7 SimulationEngine (Stateless) ✅
+### 1.8 Document Upload System ✅
+**Added:** October 20, 2025
+
+**Purpose:** Allow professors to upload case study documents instead of pasting text
+
+#### Frontend UI
+**Location:** SimulationBuilder Step 1 (Input)
+
+**Features:**
+- Drag-and-drop style upload zone
+- File type filter: `.pdf`, `.docx`, `.doc`, `.txt`
+- File size limit: 10MB
+- Supported formats (MVP): **TXT only** (PDF/DOCX coming soon)
+- File preview with name and remove button
+- Document instructions textarea
+- Dynamic button text: "Parse with AI" → "Extract & Parse Document"
+
+**UI Components:**
+```javascript
+// Upload zone with dashed border
+<input type="file" accept=".pdf,.docx,.doc,.txt" />
+
+// Document instructions (shown when file selected)
+<textarea
+  placeholder="How should the AI use this document?"
+  value={documentInstructions}
+/>
+
+// File preview
+{uploadedFile && (
+  <div>
+    <FileText /> {uploadedFile.name}
+    <X onClick={() => setUploadedFile(null)} />
+  </div>
+)}
+```
+
+#### Frontend Logic
+**File:** `apps/web/src/components/SimulationBuilder.jsx`
+
+**Process:**
+1. User selects file via file input
+2. `uploadedFile` state stores File object
+3. User enters document instructions
+4. User clicks "Extract & Parse Document"
+5. `readFileContent()` reads file using FileReader API
+6. Sends extracted text to `/api/setup/parse` with metadata:
+   ```javascript
+   {
+     scenario_text: extractedText,
+     document_instructions: "...",
+     has_document: true,
+     document_name: "case-study.txt"
+   }
+   ```
+7. Backend parses normally (text is text)
+8. Frontend stores document metadata in parameters:
+   ```javascript
+   parameters: {
+     ...suggested_parameters,
+     document_instructions: "...",
+     document_name: "case-study.txt"
+   }
+   ```
+
+#### Backend Processing
+**File:** `packages/api/services/document-processor.js` (created but not fully used in MVP)
+
+**MVP Approach:**
+- TXT files: Read directly using FileReader on frontend
+- PDF/DOCX: Show error message asking user to convert to TXT
+- Future: Use OpenAI to extract from PDF/DOCX
+
+**Database Storage:**
+```javascript
+// Stored in parameters JSONB field
+parameters: {
+  ai_mode: "challenger",
+  duration: 30,
+  document_name: "harvard-case-study.txt",      // NEW
+  document_instructions: "Extract key decisions" // NEW
+}
+```
+
+#### AI Integration
+**File:** `packages/core/simulation-engine.js`
+
+**System Prompt Enhancement:**
+```javascript
+if (params.document_name) {
+  prompt += `SOURCE DOCUMENT: ${params.document_name}\n`;
+  if (params.document_instructions) {
+    prompt += `Document Context: ${params.document_instructions}\n`;
+  }
+}
+```
+
+**Example Prompt:**
+```
+SCENARIO:
+You are the CEO of Zara. A celebrity was photographed wearing a pink scarf...
+
+SOURCE DOCUMENT: zara-case-study.txt
+Document Context: Extract key stakeholders and strategic decisions
+
+STUDENT ROLE: CEO
+...
+```
+
+#### Current Limitations
+- **TXT only** - PDF and DOCX show error message
+- No file upload to server (reads in browser)
+- No file storage (only text content saved)
+- Max practical file size ~500KB for token limits
+
+#### Future Enhancements
+- PDF extraction using OpenAI Vision or pdf-parse
+- DOCX extraction using mammoth or OpenAI
+- File storage in Supabase Storage
+- Large document chunking for token limits
+- Document preview/viewer in UI
+
+---
+
+### 1.9 SimulationEngine (Stateless) ✅
 **File:** `packages/core/simulation-engine.js`
 
 **Architecture:**
@@ -972,10 +1134,24 @@ After gathering info, use the extract_scenario_structure function to generate th
 
 ---
 
-## 🚀 Phase 4: Advanced Builder Mode (PENDING)
+## 🚀 Phase 4: Advanced Builder Mode (PARTIALLY COMPLETED)
 
-### 4.1 Actor Triggers & Goals System
-**Status:** Not started, needs design
+**Decision:** Phases 4.4-4.5 (Branching & Assessment) SKIPPED per user request
+**Progress:** Phase 4.1 (50% complete), Phase 4.2-4.3 (Not started)
+
+### 4.1 Actor Triggers & Goals System ⏳
+**Status:** PARTIALLY COMPLETED (Oct 20, 2025)
+
+**✅ Completed:**
+- **Goals UI** - Add/edit/remove actor goals in customize step
+- **Hidden Info UI** - Add/edit/remove hidden information for each actor
+- **Database Integration** - Goals and hidden_info saved in actors JSONB
+- **SimulationEngine Integration** - Included in AI system prompts
+- **Documentation** - Full schema design in ACTOR_SCHEMA_DESIGN.md
+
+**❌ Not Started:**
+- **Triggers UI** - No interface to define keyword/sentiment/time triggers
+- **Trigger Evaluation** - SimulationEngine doesn't evaluate or fire triggers
 
 **Concept:**
 Each actor can have:
