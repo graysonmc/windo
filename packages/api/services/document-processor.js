@@ -35,10 +35,23 @@ class DocumentProcessor {
    * @param {string} fileName - Original filename
    * @param {string} mimeType - MIME type of the file
    * @param {string} instructions - How the AI should process the document
-   * @returns {Promise<Object>} Processed document data
+   * @returns {Promise<Object>} Processed document data ready for database storage
    */
   async processDocument(fileBuffer, fileName, mimeType, instructions = '') {
     try {
+      // Determine file type
+      let fileType = 'txt';
+      if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
+        fileType = 'pdf';
+      } else if (
+        mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        fileName.endsWith('.docx')
+      ) {
+        fileType = 'docx';
+      } else if (fileName.endsWith('.doc')) {
+        fileType = 'doc';
+      }
+
       // Convert buffer to text based on file type
       let documentText = '';
 
@@ -63,8 +76,37 @@ class DocumentProcessor {
       // Use OpenAI to understand and extract key information
       const analysis = await this._analyzeDocument(documentText, instructions);
 
+      // Structure the data for database storage
+      const documentData = {
+        // File metadata
+        file_name: fileName,
+        file_type: fileType,
+        mime_type: mimeType || this._getMimeType(fileName),
+        file_size: fileBuffer.length,
+
+        // Extracted content
+        raw_text: documentText,
+
+        // Analysis results structured for JSONB storage
+        analysis: {
+          summary: analysis.summary || '',
+          keyPoints: this._parseListSection(analysis.keyPoints),
+          suggestedScenario: analysis.suggestedScenario || '',
+          actors: this._parseListSection(analysis.actors),
+          objectives: this._parseListSection(analysis.objectives),
+          decisions: this._parseListSection(analysis.decisions)
+        },
+
+        // Processing metadata
+        processing_instructions: instructions || null,
+        processing_status: 'completed',
+        processed_at: new Date().toISOString()
+      };
+
       return {
         success: true,
+        documentData: documentData, // Ready for database insertion
+        // Legacy response format for backward compatibility
         fileName: fileName,
         fileType: mimeType,
         rawText: documentText,
@@ -78,8 +120,62 @@ class DocumentProcessor {
 
     } catch (error) {
       console.error('Error processing document:', error);
-      throw new Error(`Failed to process document: ${error.message}`);
+
+      // Return error data structure for database
+      return {
+        success: false,
+        documentData: {
+          file_name: fileName,
+          file_type: this._getFileType(fileName),
+          mime_type: mimeType || this._getMimeType(fileName),
+          file_size: fileBuffer.length,
+          raw_text: null,
+          analysis: {},
+          processing_instructions: instructions || null,
+          processing_status: 'failed',
+          processing_error: error.message,
+          processed_at: new Date().toISOString()
+        },
+        error: error.message
+      };
     }
+  }
+
+  /**
+   * Helper to determine file type from filename
+   */
+  _getFileType(fileName) {
+    if (fileName.endsWith('.pdf')) return 'pdf';
+    if (fileName.endsWith('.docx')) return 'docx';
+    if (fileName.endsWith('.doc')) return 'doc';
+    if (fileName.endsWith('.txt')) return 'txt';
+    return 'unknown';
+  }
+
+  /**
+   * Helper to determine MIME type from filename
+   */
+  _getMimeType(fileName) {
+    if (fileName.endsWith('.pdf')) return 'application/pdf';
+    if (fileName.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (fileName.endsWith('.doc')) return 'application/msword';
+    if (fileName.endsWith('.txt')) return 'text/plain';
+    return 'application/octet-stream';
+  }
+
+  /**
+   * Helper to parse list-like sections into arrays
+   */
+  _parseListSection(text) {
+    if (!text) return [];
+
+    // Split by common delimiters (newlines, bullets, numbers)
+    const items = text
+      .split(/[\n•\-\d\.]+/)
+      .map(item => item.trim())
+      .filter(item => item.length > 0 && item.length < 500); // Filter out empty or overly long items
+
+    return items;
   }
 
   /**

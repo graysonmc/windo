@@ -31,10 +31,21 @@ class SimulationEngine {
    * @param {Object} simulation - The simulation configuration from database
    * @param {Array} conversationHistory - Array of previous messages
    * @param {String} studentMessage - The new message from the student
-   * @returns {Promise<String>} The AI's response
+   * @param {Object} documentContext - Optional document context for the simulation
+   * @returns {Promise<Object>} The AI's response and metadata
    */
-  async processMessage(simulation, conversationHistory, studentMessage) {
+  async processMessage(simulation, conversationHistory, studentMessage, documentContext = null) {
     try {
+      // Check if we should retrieve relevant document excerpts
+      let relevantExcerpts = null;
+      if (documentContext && documentContext.raw_text) {
+        relevantExcerpts = this._findRelevantExcerpts(
+          documentContext.raw_text,
+          studentMessage,
+          3
+        );
+      }
+
       // Evaluate triggers
       const triggeredActions = this._evaluateTriggers(
         simulation.actors || [],
@@ -46,7 +57,9 @@ class SimulationEngine {
         simulation,
         conversationHistory,
         studentMessage,
-        triggeredActions
+        triggeredActions,
+        documentContext,
+        relevantExcerpts
       );
 
       const response = await this.openai.chat.completions.create({
@@ -57,7 +70,21 @@ class SimulationEngine {
       });
 
       const aiResponse = response.choices[0].message.content;
-      return aiResponse;
+
+      // Track if document context was used
+      const documentContextUsed = !!(documentContext && documentContext.raw_text);
+
+      return {
+        message: aiResponse,
+        metadata: {
+          document_context_used: documentContextUsed,
+          relevant_excerpts: relevantExcerpts,
+          triggers_activated: triggeredActions.map(t => ({
+            actor: t.actorName,
+            action: t.action
+          }))
+        }
+      };
 
     } catch (error) {
       console.error('Error processing student input:', error);
@@ -69,14 +96,14 @@ class SimulationEngine {
    * Build the messages array for OpenAI API
    * Includes system prompt, conversation history, and new message
    */
-  _buildOpenAIMessages(simulation, conversationHistory, studentMessage, triggeredActions = []) {
+  _buildOpenAIMessages(simulation, conversationHistory, studentMessage, triggeredActions = [], documentContext = null, relevantExcerpts = null) {
     // Extract parameters with defaults
     const params = simulation.parameters || {};
     const aiMode = params.ai_mode || 'challenger';
     const complexity = params.complexity || 'escalating';
 
     // Build dynamic system prompt based on simulation configuration
-    const systemPrompt = this._buildSystemPrompt(simulation, aiMode, complexity);
+    const systemPrompt = this._buildSystemPrompt(simulation, aiMode, complexity, documentContext);
 
     const messages = [
       { role: 'system', content: systemPrompt }
@@ -100,6 +127,15 @@ class SimulationEngine {
       messages.push({ role: 'system', content: triggerMessage });
     }
 
+    // Add relevant document excerpts if found
+    if (relevantExcerpts && relevantExcerpts.length > 0) {
+      let contextMessage = '📄 RELEVANT DOCUMENT CONTEXT:\n';
+      relevantExcerpts.forEach((excerpt, idx) => {
+        contextMessage += `\n[Excerpt ${idx + 1}]: ${excerpt}\n`;
+      });
+      messages.push({ role: 'system', content: contextMessage });
+    }
+
     // Add new student message
     messages.push({ role: 'user', content: studentMessage });
 
@@ -109,7 +145,7 @@ class SimulationEngine {
   /**
    * Build the system prompt based on simulation configuration
    */
-  _buildSystemPrompt(simulation, aiMode, complexity) {
+  _buildSystemPrompt(simulation, aiMode, complexity, documentContext = null) {
     const scenario = simulation.scenario_text || simulation.scenario || '';
     const actors = simulation.actors || [];
     const objectives = simulation.objectives || [];
@@ -127,9 +163,40 @@ ${scenario}
 
 `;
 
-    // Add document context if present
+    // Add ORIGINAL DOCUMENT TEXT as primary source (NOT AI analysis)
+    // The raw text is the authoritative source for simulation context
+    if (documentContext && documentContext.raw_text) {
+      prompt += `CASE STUDY SOURCE DOCUMENT:\n`;
+
+      // Add document metadata for reference
+      if (documentContext.metadata) {
+        const meta = documentContext.metadata;
+        prompt += `File: ${meta.file_name || 'Unknown'}\n`;
+        prompt += `Type: ${meta.file_type || 'Unknown'}\n\n`;
+      }
+
+      // Include the FULL RAW TEXT as the primary context
+      // This is the direct OCR/extracted text, NOT the AI interpretation
+      prompt += `FULL DOCUMENT TEXT (Use this as your primary source):\n`;
+      prompt += `${documentContext.raw_text}\n\n`;
+
+      // Add usage instructions
+      prompt += `IMPORTANT INSTRUCTIONS FOR USING THIS DOCUMENT:\n`;
+      prompt += `1. The above text is the ORIGINAL document content - use it as your authoritative source\n`;
+      prompt += `2. Reference specific facts, numbers, names, and situations directly from this text\n`;
+      prompt += `3. When students ask questions, quote or paraphrase relevant sections from the document\n`;
+      prompt += `4. Do NOT rely on AI-generated summaries - use the actual document text\n`;
+      prompt += `5. Ground all responses in the specific details provided in the original document\n\n`;
+
+      // Only include custom instructions if provided
+      if (documentContext.instructions) {
+        prompt += `Additional Context Instructions: ${documentContext.instructions}\n\n`;
+      }
+    }
+
+    // Add legacy document context from parameters if no document context provided
     const params = simulation.parameters || {};
-    if (params.document_name) {
+    if (!documentContext && params.document_name) {
       prompt += `SOURCE DOCUMENT: ${params.document_name}\n`;
       if (params.document_instructions) {
         prompt += `Document Context: ${params.document_instructions}\n`;
@@ -153,7 +220,22 @@ ${scenario}
         if (actor.personality_mode) {
           prompt += ` - ${actor.personality_mode} personality`;
         }
+        if (actor.knowledge_level) {
+          prompt += ` - ${actor.knowledge_level} knowledge level`;
+        }
         prompt += `\n`;
+
+        // Add knowledge level instructions if present
+        if (actor.knowledge_level) {
+          const levelInstructions = {
+            'basic': '  Knowledge: Limited expertise, may lack detailed information, speaks in general terms',
+            'intermediate': '  Knowledge: Moderate expertise, understands core concepts but may not know all details',
+            'expert': '  Knowledge: Deep expertise, comprehensive understanding, can provide detailed insights'
+          };
+          if (levelInstructions[actor.knowledge_level]) {
+            prompt += levelInstructions[actor.knowledge_level] + '\n';
+          }
+        }
 
         // Add personality traits if present
         if (actor.personality_traits) {
@@ -254,7 +336,9 @@ ${scenario}
         break;
       case 'custom':
         // Use custom instructions from parameters
-        const customInstructions = simulation.parameters?.custom_instructions || simulation.parameters?.instructions;
+        const customInstructions = simulation.parameters?.custom_instructions ||
+                                   simulation.parameters?.custom_ai_mode_description ||
+                                   simulation.parameters?.instructions;
         if (customInstructions) {
           prompt += `${customInstructions}\n`;
         }
@@ -414,6 +498,73 @@ COMPLEXITY: ${complexity}
     });
 
     return triggeredActions;
+  }
+
+  /**
+   * Find relevant excerpts from RAW DOCUMENT TEXT based on student message
+   * This searches the ORIGINAL OCR/extracted text, NOT AI summaries
+   * @param {String} documentText - Full raw/OCR document text (NOT AI analysis)
+   * @param {String} query - Student message to match against
+   * @param {Number} maxExcerpts - Maximum number of excerpts to return
+   * @returns {Array} Array of relevant text excerpts from the original document
+   */
+  _findRelevantExcerpts(documentText, query, maxExcerpts = 3) {
+    if (!documentText || !query) return [];
+
+    // Split into sentences/paragraphs
+    const segments = documentText
+      .split(/[.!?]\s+|\n\n/)
+      .filter(s => s.trim().length > 20); // Filter out very short segments
+
+    // Extract key terms from query (simple tokenization)
+    const queryTerms = query.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .split(/\s+/)
+      .filter(term => term.length > 3); // Skip short words
+
+    // Score each segment based on term matches
+    const scoredSegments = segments.map(segment => {
+      const lowerSegment = segment.toLowerCase();
+      let score = 0;
+
+      // Count term occurrences
+      queryTerms.forEach(term => {
+        const regex = new RegExp(`\\b${term}\\b`, 'gi');
+        const matches = lowerSegment.match(regex);
+        if (matches) {
+          score += matches.length * 2; // Weight term matches
+        }
+
+        // Partial matches get lower score
+        if (lowerSegment.includes(term)) {
+          score += 1;
+        }
+      });
+
+      // Boost score for segments with multiple different terms
+      const uniqueTermsFound = queryTerms.filter(term =>
+        lowerSegment.includes(term)
+      ).length;
+      score += uniqueTermsFound * 3;
+
+      return { segment, score };
+    });
+
+    // Sort by score and take top excerpts
+    const topExcerpts = scoredSegments
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxExcerpts)
+      .map(item => {
+        // Clean up and format the excerpt
+        let excerpt = item.segment.trim();
+        if (!excerpt.match(/[.!?]$/)) {
+          excerpt += '.';
+        }
+        return excerpt;
+      });
+
+    return topExcerpts;
   }
 
   /**

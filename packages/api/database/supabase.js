@@ -209,6 +209,175 @@ export const db = {
 
     if (error) throw error;
     return data;
+  },
+
+  // ============================================================================
+  // DOCUMENTS
+  // ============================================================================
+
+  async createDocument(documentData) {
+    const { data, error } = await supabase
+      .from('documents')
+      .insert([documentData])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getDocument(documentId) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('id', documentId)
+      .single();
+
+    if (error) throw error;
+
+    // Update last accessed timestamp
+    await supabase
+      .from('documents')
+      .update({ last_accessed_at: new Date().toISOString() })
+      .eq('id', documentId);
+
+    return data;
+  },
+
+  async updateDocument(documentId, updates) {
+    const { data, error } = await supabase
+      .from('documents')
+      .update(updates)
+      .eq('id', documentId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteDocument(documentId) {
+    const { error } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', documentId);
+
+    if (error) throw error;
+    return { success: true };
+  },
+
+  async listDocuments(filters = {}) {
+    let query = supabase.from('documents').select('*');
+
+    if (filters.uploaded_by) {
+      query = query.eq('uploaded_by', filters.uploaded_by);
+    }
+
+    if (filters.file_type) {
+      query = query.eq('file_type', filters.file_type);
+    }
+
+    if (filters.processing_status) {
+      query = query.eq('processing_status', filters.processing_status);
+    }
+
+    if (filters.simulation_id) {
+      query = query.eq('simulation_id', filters.simulation_id);
+    }
+
+    query = query.order('uploaded_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data;
+  },
+
+  async linkDocumentToSimulation(documentId, simulationId) {
+    // Update document with simulation reference
+    const { data: docData, error: docError } = await supabase
+      .from('documents')
+      .update({ simulation_id: simulationId })
+      .eq('id', documentId)
+      .select()
+      .single();
+
+    if (docError) throw docError;
+
+    // Update simulation with document reference
+    const { data: simData, error: simError } = await supabase
+      .from('simulations')
+      .update({ source_document_id: documentId })
+      .eq('id', simulationId)
+      .select()
+      .single();
+
+    if (simError) throw simError;
+
+    return { document: docData, simulation: simData };
+  },
+
+  async getDocumentWithSimulation(documentId) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*, simulations!simulation_id(*)')
+      .eq('id', documentId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Document version management
+  async createDocumentVersion(documentId, versionData) {
+    // Get next version number
+    const { data: versions, error: versionError } = await supabase
+      .from('document_versions')
+      .select('version_number')
+      .eq('document_id', documentId)
+      .order('version_number', { ascending: false })
+      .limit(1);
+
+    if (versionError && versionError.code !== 'PGRST116') throw versionError;
+
+    const nextVersion = versions && versions.length > 0 ? versions[0].version_number + 1 : 1;
+
+    const { data, error } = await supabase
+      .from('document_versions')
+      .insert([{
+        document_id: documentId,
+        version_number: nextVersion,
+        ...versionData
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getDocumentVersions(documentId) {
+    const { data, error } = await supabase
+      .from('document_versions')
+      .select('*')
+      .eq('document_id', documentId)
+      .order('version_number', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getLatestDocumentVersion(documentId) {
+    const { data, error } = await supabase
+      .from('document_versions')
+      .select('*')
+      .eq('document_id', documentId)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 };
 

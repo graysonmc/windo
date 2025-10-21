@@ -100,6 +100,7 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
             headers: {
               'Content-Type': 'multipart/form-data',
             },
+            timeout: 90000 // 90 second timeout for AI parsing
           });
         } else {
           // For TXT files, read locally and use text endpoint
@@ -109,28 +110,43 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
             document_instructions: documentInstructions || undefined,
             has_document: true,
             document_name: uploadedFile.name
+          }, {
+            timeout: 90000 // 90 second timeout for AI parsing
           });
         }
       } else {
         // No file uploaded, use scenario text
         response = await axios.post(`${API_BASE}/setup/parse`, {
           scenario_text: scenarioText
+        }, {
+          timeout: 30000 // 30 second timeout for AI parsing
         });
       }
 
       setParsedData(response.data);
-      setActors(response.data.parsed.actors);
-      setObjectives(response.data.parsed.suggested_objectives);
+      setActors(response.data.parsed.actors || []);
+      setObjectives(response.data.parsed.learning_objectives || response.data.parsed.suggested_objectives || []);
       setParameters({
-        ...response.data.suggested_parameters,
+        ...(response.data.suggested_parameters || {}),
         document_instructions: documentInstructions || undefined,
         document_name: uploadedFile?.name || undefined
       });
-      setSimulationName(`${response.data.parsed.scenario_type.replace('_', ' ')} Simulation`);
+
+      // Safely handle scenario_type formatting
+      const scenarioType = response.data.parsed.scenario_type || 'business';
+      setSimulationName(`${scenarioType.replace('_', ' ')} Simulation`);
 
       setStep('review');
     } catch (err) {
-      setError(err.response?.data?.details || err.response?.data?.error || 'Failed to parse scenario');
+      console.error('Parse error:', err);
+
+      if (err.code === 'ECONNABORTED') {
+        setError('Request timed out after 90 seconds. The OpenAI API is taking unusually long. Please try with a shorter scenario (just a few words work best for testing).');
+      } else if (err.response?.status === 500) {
+        setError('Server error occurred. Please check the console for details.');
+      } else {
+        setError(err.response?.data?.details || err.response?.data?.error || err.message || 'Failed to parse scenario');
+      }
       setStep('input');
     } finally {
       setLoading(false);
@@ -434,9 +450,18 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                   disabled={(!scenarioText.trim() && !uploadedFile) || loading}
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
-                  <Sparkles className="w-5 h-5" />
-                  {uploadedFile ? 'Extract & Parse Document' : 'Parse with AI'}
-                  <ArrowRight className="w-4 h-4" />
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <span>Parsing with OpenAI GPT-4... (this may take 10-30 seconds)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      {uploadedFile ? 'Extract & Parse Document' : 'Parse with AI'}
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -704,11 +729,39 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                             <input
                               type="checkbox"
                               checked={actor.is_student_role}
-                              onChange={(e) => updateActor(idx, 'is_student_role', e.target.checked)}
+                              onChange={(e) => {
+                                // When marking as student role, ensure only one is selected
+                                if (e.target.checked) {
+                                  // Unmark all other actors as student role
+                                  const updatedActors = actors.map((a, i) => ({
+                                    ...a,
+                                    is_student_role: i === idx
+                                  }));
+                                  setActors(updatedActors);
+                                } else {
+                                  updateActor(idx, 'is_student_role', false);
+                                }
+                              }}
                               className="rounded text-blue-600"
                             />
                             <span className="text-gray-700">Student Role</span>
                           </label>
+
+                          {/* Knowledge Level - only for AI actors */}
+                          {!actor.is_student_role && (
+                            <div className="mt-2">
+                              <label className="block text-xs text-gray-600">Knowledge Level</label>
+                              <select
+                                value={actor.knowledge_level || 'expert'}
+                                onChange={(e) => updateActor(idx, 'knowledge_level', e.target.value)}
+                                className="w-full mt-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="basic">Basic</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="expert">Expert</option>
+                              </select>
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => removeActor(idx)}
@@ -718,6 +771,9 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                         </button>
                       </div>
 
+                      {/* Advanced Settings - Only show for AI actors, not student roles */}
+                      {!actor.is_student_role && (
+                        <>
                       {/* Goals Section */}
                       <div className="border-t border-gray-200 pt-2 mt-2">
                         <label className="block text-xs font-medium text-gray-600 mb-1">Goals & Motivations</label>
@@ -1132,6 +1188,8 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                           </button>
                         </div>
                       </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>

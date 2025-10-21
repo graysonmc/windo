@@ -22,6 +22,8 @@ class ScenarioParser {
   constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      timeout: 50000, // 50 second timeout
+      maxRetries: 2,
     });
 
     if (!process.env.OPENAI_API_KEY) {
@@ -35,21 +37,29 @@ class ScenarioParser {
    * @returns {Promise<Object>} Parsed scenario data
    */
   async parseScenario(scenarioText) {
+    console.log('Starting scenario parsing with OpenAI...');
+    console.log('Scenario text length:', scenarioText?.length || 0);
+
     try {
+      console.log('Calling OpenAI API...');
+      const startTime = Date.now();
+
       const response = await this.openai.chat.completions.create({
         model: 'gpt-4',
         messages: [
           {
             role: 'system',
             content: `You are an expert at analyzing business case studies and educational scenarios.
-Your job is to extract structured information that will be used to configure an AI-powered simulation.
+Your job is to extract COMPREHENSIVE structured information that will be used to configure an AI-powered simulation.
 
 Key principles:
-- Identify all actors/characters in the scenario
+- Identify all actors/characters with their goals, priorities, and hidden information
 - Determine which role the student should play (usually the decision-maker)
-- Classify the type of scenario for appropriate AI behavior
-- Extract learning objectives that align with the scenario's challenges
-- Provide a confidence score based on how much information is available`
+- Extract specific learning objectives from the document (not generic ones)
+- Identify relationships and loyalties between actors
+- Find potential trigger conditions and responses
+- Extract all contextual details that make the scenario realistic
+- Provide rich character details to enable deep role-playing`
           },
           {
             role: 'user',
@@ -83,8 +93,36 @@ Key principles:
                       },
                       personality_mode: {
                         type: 'string',
-                        enum: ['supportive', 'challenging', 'neutral', 'expert', 'conflicted'],
-                        description: 'Suggested personality for AI actors'
+                        enum: ['supportive', 'challenging', 'neutral', 'expert', 'conflicted', 'professional'],
+                        description: 'Suggested personality for AI actors (only for non-student roles)'
+                      },
+                      knowledge_level: {
+                        type: 'string',
+                        enum: ['expert', 'intermediate', 'basic'],
+                        description: 'Level of expertise this character has (only for non-student roles)'
+                      },
+                      goals: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Character goals (only for non-student roles)'
+                      },
+                      hidden_info: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Hidden information (only for non-student roles)'
+                      },
+                      priorities: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Ordered priorities (only for non-student roles)'
+                      },
+                      loyalties: {
+                        type: 'object',
+                        properties: {
+                          supports: { type: 'array', items: { type: 'string' } },
+                          opposes: { type: 'array', items: { type: 'string' } }
+                        },
+                        description: 'Relationship dynamics (only for non-student roles)'
                       },
                       description: {
                         type: 'string',
@@ -122,31 +160,48 @@ Key principles:
                     }
                   }
                 },
-                suggested_objectives: {
+                learning_objectives: {
                   type: 'array',
-                  description: 'Learning objectives that align with this scenario',
+                  description: 'Specific learning objectives extracted from or suggested for this scenario - can be standard or custom objectives',
                   items: {
-                    type: 'string',
-                    enum: [
-                      'Strategic Thinking',
-                      'Ethical Reasoning',
-                      'Stakeholder Analysis',
-                      'Risk Assessment',
-                      'Crisis Management',
-                      'Negotiation Skills',
-                      'Decision Making Under Uncertainty',
-                      'Systems Thinking',
-                      'Leadership',
-                      'Communication',
-                      'Conflict Resolution',
-                      'Financial Analysis'
-                    ]
-                  }
+                    type: 'string'
+                  },
+                  minItems: 1,
+                  maxItems: 15
+                },
+                suggested_ai_mode: {
+                  type: 'string',
+                  description: 'Suggested AI behavior mode - can be standard (challenger, coach, expert, adaptive, socratic) or custom with description'
+                },
+                custom_ai_mode_description: {
+                  type: 'string',
+                  description: 'If suggested_ai_mode is custom, describe the specific behavior'
                 },
                 key_decision_points: {
                   type: 'array',
                   description: 'The main decisions or questions the student must address',
                   items: { type: 'string' }
+                },
+                suggested_triggers: {
+                  type: 'array',
+                  description: 'Behavioral triggers based on scenario events',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      condition: {
+                        type: 'string',
+                        description: 'When this happens (e.g., "mentions budget cuts")'
+                      },
+                      action: {
+                        type: 'string',
+                        description: 'AI should do this (e.g., "express concern about employee morale")'
+                      },
+                      actor: {
+                        type: 'string',
+                        description: 'Which actor this trigger applies to'
+                      }
+                    }
+                  }
                 },
                 confidence: {
                   type: 'number',
@@ -160,7 +215,7 @@ Key principles:
                   items: { type: 'string' }
                 }
               },
-              required: ['actors', 'scenario_type', 'context', 'suggested_objectives', 'confidence']
+              required: ['actors', 'scenario_type', 'context', 'learning_objectives', 'confidence']
             }
           }
         ],
@@ -168,8 +223,12 @@ Key principles:
         temperature: 0.3 // Lower temperature for more consistent extraction
       });
 
+      const elapsedTime = Date.now() - startTime;
+      console.log(`OpenAI API responded in ${elapsedTime}ms`);
+
       const functionCall = response.choices[0].message.function_call;
       const parsedData = JSON.parse(functionCall.arguments);
+      console.log('Successfully parsed scenario data');
 
       // Post-process: Add suggested AI parameters based on scenario type
       const suggestedParameters = this._suggestParametersForScenarioType(parsedData.scenario_type);
@@ -191,6 +250,15 @@ Key principles:
 
     } catch (error) {
       console.error('Error parsing scenario:', error);
+
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        throw new Error('OpenAI API request timed out. Please try with a shorter scenario.');
+      } else if (error.code === 'invalid_api_key') {
+        throw new Error('Invalid OpenAI API key. Please check your configuration.');
+      } else if (error.status === 429) {
+        throw new Error('OpenAI API rate limit exceeded. Please try again later.');
+      }
+
       throw new Error(`Failed to parse scenario: ${error.message}`);
     }
   }
