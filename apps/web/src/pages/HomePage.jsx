@@ -265,43 +265,43 @@ export default function WindoHomePage() {
           <div>
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">My Simulations</h1>
-                <p className="text-gray-600">Manage and monitor your created simulations</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">My Simulations</h1>
+                <p className="text-gray-600 dark:text-gray-400">Manage and monitor your created simulations</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowBuildModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium"
               >
                 <Plus className="w-5 h-5" />
                 Create New
               </button>
             </div>
 
-            <div className="flex gap-8 mb-6 border-b border-gray-200">
+            <div className="flex gap-8 mb-6 border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setMySimsView('created')}
                 className={`pb-3 px-1 font-medium transition-colors relative ${
                   mySimsView === 'created'
-                    ? 'text-blue-600'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
                 Created by Me
                 {mySimsView === 'created' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></div>
                 )}
               </button>
               <button
                 onClick={() => setMySimsView('participation')}
                 className={`pb-3 px-1 font-medium transition-colors relative ${
                   mySimsView === 'participation'
-                    ? 'text-blue-600'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
                 Participation History
                 {mySimsView === 'participation' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400"></div>
                 )}
               </button>
             </div>
@@ -309,23 +309,23 @@ export default function WindoHomePage() {
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading {mySimsView === 'created' ? 'simulations' : 'sessions'}...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Loading {mySimsView === 'created' ? 'simulations' : 'sessions'}...</p>
                 </div>
               </div>
             ) : currentSimulations.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                   {mySimsView === 'created' ? (
-                    <Plus className="w-8 h-8 text-gray-400" />
+                    <Plus className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                   ) : (
-                    <Play className="w-8 h-8 text-gray-400" />
+                    <Play className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                   )}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                   {mySimsView === 'created' ? 'No simulations yet' : 'No participation history'}
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
                   {mySimsView === 'created'
                     ? 'Get started by creating your first simulation'
                     : 'Your completed and in-progress simulations will appear here'}
@@ -333,7 +333,7 @@ export default function WindoHomePage() {
                 {mySimsView === 'created' && (
                   <button
                     onClick={() => setShowBuildModal(true)}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium"
                   >
                     <Plus className="w-5 h-5" />
                     Create Your First Simulation
@@ -343,7 +343,7 @@ export default function WindoHomePage() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {currentSimulations.map((sim) => (
-                <div key={sim.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 overflow-hidden group">
+                <div key={sim.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 dark:border-gray-700 overflow-hidden group">
                   <div style={{ background: sim.thumbnail }} className="h-32 relative">
                     {mySimsView === 'created' ? (
                       <>
@@ -502,31 +502,31 @@ export default function WindoHomePage() {
           <div>
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">My Groups</h1>
-                <p className="text-gray-600">Manage your class groups and collaborative spaces</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">My Groups</h1>
+                <p className="text-gray-600 dark:text-gray-400">Manage your class groups and collaborative spaces</p>
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium">
                 <Plus className="w-5 h-5" />
                 Create Group
               </button>
             </div>
             {myGroups.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-8 h-8 text-gray-400" />
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No groups yet</h3>
-                <p className="text-gray-600 mb-6">Create or join groups to collaborate with your classmates</p>
-                <button className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No groups yet</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">Create or join groups to collaborate with your classmates</p>
+                <button className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium">
                   <Plus className="w-5 h-5" />
                   Create Your First Group
                 </button>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                 {myGroups.map((group, idx) => (
-                  <div key={group.id} className={`p-4 hover:bg-gray-50 transition-colors flex items-center gap-4 ${
-                    idx !== myGroups.length - 1 ? 'border-b border-gray-100' : ''
+                  <div key={group.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-4 ${
+                    idx !== myGroups.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''
                   }`}>
                     <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                       <Users className="w-5 h-5 text-blue-600" />
@@ -553,42 +553,42 @@ export default function WindoHomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-6">
-            <div className="text-2xl font-bold text-blue-600">WINDO</div>
-            
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">WINDO</div>
+
             <div className="flex-1 max-w-2xl mx-8">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Search simulations, creators, topics..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setShowBuildModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium"
               >
                 <Plus className="w-5 h-5" />
                 Build Simulation
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                <Settings className="w-6 h-6 text-gray-600" />
+                <Settings className="w-6 h-6 text-gray-600 dark:text-gray-300" />
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => setShowProfile(!showProfile)}
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                   <User className="w-5 h-5 text-white" />
@@ -604,8 +604,8 @@ export default function WindoHomePage() {
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-2 rounded-lg font-medium transition-colors ${
                   activeTab === tab
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
                 {tab.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

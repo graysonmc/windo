@@ -322,26 +322,26 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+        className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Simulation' : 'Create Simulation'}</h2>
-            <p className="text-sm text-gray-600 mt-1">{isEditMode ? 'Update your AI-powered learning experience' : 'Build an AI-powered learning experience'}</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{isEditMode ? 'Edit Simulation' : 'Create Simulation'}</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{isEditMode ? 'Update your AI-powered learning experience' : 'Build an AI-powered learning experience'}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            <X className="w-5 h-5 text-gray-900 dark:text-gray-100" />
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-            <span className="text-sm text-red-700">{error}</span>
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+            <span className="text-sm text-red-700 dark:text-red-400">{error}</span>
           </div>
         )}
 
@@ -352,7 +352,7 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
           {step === 'input' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Describe Your Scenario
                 </label>
                 <textarea
@@ -361,14 +361,14 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
                   placeholder="Paste your case study or describe the situation students will navigate...
 
 Example: You are the CEO of Zara. A celebrity was photographed wearing a pink scarf from your store, and it has gone viral on social media..."
-                  className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-4 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={12}
                 />
-                <div className="mt-2 flex items-center justify-between text-sm text-gray-500">
+                <div className="mt-2 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
                   <span>{scenarioText.length} characters</span>
                   <button
                     onClick={useSample}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                   >
                     Use Sample Scenario
                   </button>
@@ -377,15 +377,15 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
 
               {/* Document Upload */}
               <div>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 bg-gray-50 dark:bg-gray-700/50">
                   <div className="text-center">
-                    <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                    <FileText className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                     <div className="mt-4">
                       <label htmlFor="file-upload" className="cursor-pointer">
-                        <span className="mt-2 block text-sm font-medium text-gray-900">
+                        <span className="mt-2 block text-sm font-medium text-gray-900 dark:text-gray-100">
                           Upload File
                         </span>
-                        <span className="mt-1 block text-xs text-gray-500">
+                        <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
                           PDF, DOCX, TXT up to 10MB
                         </span>
                         <input
@@ -401,7 +401,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                           }}
                         />
                         <div className="mt-4">
-                          <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                          <span className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                             <Upload className="w-4 h-4 mr-2" />
                             Choose File
                           </span>
@@ -410,12 +410,12 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                     </div>
 
                     {uploadedFile && (
-                      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+                      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                         <FileText className="w-4 h-4" />
                         <span className="font-medium">{uploadedFile.name}</span>
                         <button
                           onClick={() => setUploadedFile(null)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -425,14 +425,14 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                 </div>
 
                 <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     File Instructions
                   </label>
                   <textarea
                     value={documentInstructions}
                     onChange={(e) => setDocumentInstructions(e.target.value)}
                     placeholder="How should the AI use this file? (e.g., 'Extract key decisions and stakeholders', 'Use as context for the simulation scenario')"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     rows={3}
                   />
                 </div>
@@ -441,14 +441,14 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               <div className="flex gap-3">
                 <button
                   onClick={onClose}
-                  className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="px-6 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={parseScenario}
                   disabled={(!scenarioText.trim() && !uploadedFile) || loading}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {loading ? (
                     <>
@@ -471,8 +471,8 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
           {step === 'parsing' && (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Your Scenario</h3>
-              <p className="text-sm text-gray-600 text-center max-w-md">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Analyzing Your Scenario</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-md">
                 Using AI to extract actors, identify learning objectives, and suggest optimal parameters...
               </p>
             </div>
@@ -481,23 +481,23 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
           {/* Step 3: Review Parsed Data */}
           {step === 'review' && parsedData && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-100">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-4 border border-blue-100 dark:border-blue-800">
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                  <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 mb-1">Parsing Complete!</h3>
-                    <p className="text-sm text-gray-700 mb-2">
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-1">Parsing Complete!</h3>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
                       Identified <strong>{actors.length} actors</strong>, classified as <strong>{parsedData.parsed.scenario_type.replace('_', ' ')}</strong>
                     </p>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-600">Confidence:</span>
-                      <div className="flex-1 max-w-xs h-2 bg-white rounded-full overflow-hidden">
+                      <span className="text-gray-600 dark:text-gray-400">Confidence:</span>
+                      <div className="flex-1 max-w-xs h-2 bg-white dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-green-500"
+                          className="h-full bg-green-500 dark:bg-green-400"
                           style={{ width: `${parsedData.parsed.confidence * 100}%` }}
                         />
                       </div>
-                      <span className="font-medium text-gray-900">{Math.round(parsedData.parsed.confidence * 100)}%</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{Math.round(parsedData.parsed.confidence * 100)}%</span>
                     </div>
                   </div>
                 </div>
@@ -506,28 +506,28 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               {/* Actors Preview */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <Users className="w-5 h-5 text-gray-700" />
-                  <h3 className="font-medium text-gray-900">Actors Identified</h3>
+                  <Users className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">Actors Identified</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {actors.map((actor, idx) => (
                     <div key={idx} className={`p-3 rounded-lg border-2 ${
                       actor.is_student_role
-                        ? 'bg-blue-50 border-blue-200'
-                        : 'bg-white border-gray-200'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                        : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600'
                     }`}>
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h4 className="font-medium text-gray-900">{actor.name}</h4>
-                          <p className="text-sm text-gray-600">{actor.role}</p>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">{actor.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{actor.role}</p>
                         </div>
                         {actor.is_student_role && (
-                          <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full font-medium">
+                          <span className="px-2 py-0.5 bg-blue-600 dark:bg-blue-500 text-white text-xs rounded-full font-medium">
                             Student
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-600">{actor.description}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">{actor.description}</p>
                     </div>
                   ))}
                 </div>
@@ -536,12 +536,12 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               {/* Suggested Objectives */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <Target className="w-5 h-5 text-gray-700" />
-                  <h3 className="font-medium text-gray-900">Suggested Learning Objectives</h3>
+                  <Target className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">Suggested Learning Objectives</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {objectives.map((obj, idx) => (
-                    <span key={idx} className="px-3 py-1.5 bg-blue-100 text-blue-700 text-sm rounded-lg font-medium">
+                    <span key={idx} className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-lg font-medium">
                       {obj}
                     </span>
                   ))}
@@ -551,23 +551,23 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               {/* AI Parameters */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <Settings className="w-5 h-5 text-gray-700" />
-                  <h3 className="font-medium text-gray-900">Suggested AI Behavior</h3>
+                  <Settings className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">Suggested AI Behavior</h3>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">AI Mode:</span>
-                    <span className="font-medium text-gray-900 capitalize">{parameters.ai_mode}</span>
+                    <span className="text-gray-600 dark:text-gray-400">AI Mode:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100 capitalize">{parameters.ai_mode}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Complexity:</span>
-                    <span className="font-medium text-gray-900 capitalize">{parameters.complexity}</span>
+                    <span className="text-gray-600 dark:text-gray-400">Complexity:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100 capitalize">{parameters.complexity}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium text-gray-900">{parameters.duration} minutes</span>
+                    <span className="text-gray-600 dark:text-gray-400">Duration:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{parameters.duration} minutes</span>
                   </div>
-                  <p className="text-xs text-gray-600 mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                     {parameters.reasoning}
                   </p>
                 </div>
@@ -576,7 +576,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setStep('input')}
-                  className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="px-6 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                 >
                   <ArrowLeft className="w-4 h-4 inline mr-2" />
                   Back
@@ -597,7 +597,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
             <div className="space-y-6">
               {/* Simulation Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Simulation Name
                 </label>
                 <input
@@ -605,29 +605,29 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                   value={simulationName}
                   onChange={(e) => setSimulationName(e.target.value)}
                   placeholder="Enter a name for your simulation"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               {/* Scenario Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Scenario Description
                 </label>
                 <textarea
                   value={scenarioText}
                   onChange={(e) => setScenarioText(e.target.value)}
                   placeholder="Describe the scenario students will navigate..."
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={6}
                 />
               </div>
 
               {/* Document Upload */}
               <div>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 bg-gray-50 dark:bg-gray-700/50">
                   <div className="text-center">
-                    <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                    <FileText className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                     <div className="mt-4">
                       <label htmlFor="file-upload-customize" className="cursor-pointer">
                         <span className="mt-2 block text-sm font-medium text-gray-900">
@@ -649,7 +649,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                           }}
                         />
                         <div className="mt-4">
-                          <span className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                          <span className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                             <Upload className="w-4 h-4 mr-2" />
                             Choose File
                           </span>
@@ -678,14 +678,14 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                 </div>
 
                 <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     File Instructions
                   </label>
                   <textarea
                     value={documentInstructions}
                     onChange={(e) => setDocumentInstructions(e.target.value)}
                     placeholder="How should the AI use this file? (e.g., 'Extract key decisions and stakeholders', 'Use as context for the simulation scenario')"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     rows={3}
                   />
                 </div>
@@ -1347,7 +1347,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                 {!isEditMode && (
                   <button
                     onClick={() => setStep('review')}
-                    className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    className="px-6 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                   >
                     <ArrowLeft className="w-4 h-4 inline mr-2" />
                     Back
@@ -1387,7 +1387,7 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               <div className="flex gap-3">
                 <button
                   onClick={onClose}
-                  className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="px-6 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                 >
                   Close
                 </button>
