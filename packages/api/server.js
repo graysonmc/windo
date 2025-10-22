@@ -76,10 +76,21 @@ app.post('/api/setup/parse', async (req, res) => {
     // Validate actors
     const actorValidation = parser.validateActors(parseResult.parsed.actors);
 
+    // Generate a first message based on the parsed scenario
+    let suggestedFirstMessage = '';
+    if (parseResult.parsed.actors) {
+      const studentRole = parseResult.parsed.actors.find(a => a.is_student_role);
+      const roleName = studentRole ? (studentRole.name || studentRole.role || 'student') : 'decision-maker';
+      const scenarioStart = scenario_text.substring(0, 200);
+
+      suggestedFirstMessage = `Welcome to this simulation. You are the ${roleName}. ${scenarioStart.substring(0, 150)}... The situation requires your immediate attention. What would you like to know first?`;
+    }
+
     res.status(200).json({
       success: true,
       ...parseResult,
-      actor_validation: actorValidation
+      actor_validation: actorValidation,
+      suggested_first_message: suggestedFirstMessage
     });
 
   } catch (error) {
@@ -161,10 +172,21 @@ app.post('/api/setup/parse-file', upload.single('file'), async (req, res) => {
       }
     }
 
+    // Generate a first message based on the parsed scenario
+    let suggestedFirstMessage = '';
+    if (parseResult.parsed.actors) {
+      const studentRole = parseResult.parsed.actors.find(a => a.is_student_role);
+      const roleName = studentRole ? (studentRole.name || studentRole.role || 'student') : 'decision-maker';
+      const context = processedDoc.documentData.analysis?.summary || processedDoc.rawText.substring(0, 200);
+
+      suggestedFirstMessage = `Welcome to this simulation. You are the ${roleName}. ${context.substring(0, 150)}... The situation requires your immediate attention. What would you like to know first?`;
+    }
+
     res.status(200).json({
       success: true,
       ...parseResult,
       actor_validation: actorValidation,
+      suggested_first_message: suggestedFirstMessage,
       document: {
         id: savedDocument ? savedDocument.id : null,
         fileName: req.file.originalname,
@@ -591,7 +613,17 @@ app.post('/api/setup/parse-document-for-setup', upload.single('file'), async (re
         complexity: 'escalating',
         duration: 25,
         narrative_freedom: 0.7,
-        custom_instructions: `Use the document "${req.file.originalname}" as the primary source of truth for this simulation. Reference specific details, numbers, and situations from the document.`
+        custom_instructions: `Use the document "${req.file.originalname}" as the primary source of truth for this simulation. Reference specific details, numbers, and situations from the document.`,
+        // Generate first message based on the scenario and student role
+        first_message: (() => {
+          const studentRole = (parseResult.parsed.actors || processedDoc.documentData.analysis.actors || [])
+            .find(a => a.is_student_role);
+          const roleName = studentRole ? (studentRole.name || studentRole.role || 'student') : 'decision-maker';
+          const context = processedDoc.documentData.analysis.summary || processedDoc.rawText.substring(0, 200);
+
+          return `Welcome to this simulation. You are the ${roleName}. ${context.substring(0, 150)}... The situation requires your immediate attention. What would you like to know first?`;
+        })(),
+        time_horizon: 'immediate' // Default time horizon
       },
 
       // Document Context
@@ -757,6 +789,20 @@ app.post('/api/student/respond', async (req, res) => {
     } else {
       // Create new session
       session = await db.createSession(simulationId);
+
+      // Check if simulation has a first message to auto-send
+      if (simulation.parameters && simulation.parameters.first_message) {
+        // Add the first message from AI to the session immediately
+        await db.addMessageToSession(session.id, {
+          role: 'ai_advisor',
+          content: simulation.parameters.first_message,
+          timestamp: new Date().toISOString(),
+          metadata: { auto_generated: true, type: 'first_message' }
+        });
+
+        // Update session with the first message
+        session = await db.getSession(session.id);
+      }
     }
 
     // Get document context if available
@@ -833,6 +879,9 @@ app.post('/api/student/respond', async (req, res) => {
       });
     }
 
+    // Check if this is a new session with a first message
+    const isNewSession = !req.body.sessionId && simulation.parameters?.first_message;
+
     res.status(200).json({
       success: true,
       response: aiResponse,
@@ -840,7 +889,8 @@ app.post('/api/student/respond', async (req, res) => {
       simulationId: simulation.id,
       messageCount: updatedSession.conversation_history.length,
       documentContextUsed: metadata.document_context_used || false,
-      triggersActivated: metadata.triggers_activated || []
+      triggersActivated: metadata.triggers_activated || [],
+      firstMessage: isNewSession ? simulation.parameters.first_message : null
     });
 
   } catch (error) {

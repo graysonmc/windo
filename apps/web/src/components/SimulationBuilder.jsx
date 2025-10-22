@@ -46,6 +46,15 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
   const [error, setError] = useState('');
   const [isEditMode, setIsEditMode] = useState(!!editSimulation);
 
+  // Feedback state
+  const [feedback, setFeedback] = useState({
+    rating: null,
+    difficulty: '',
+    effectiveness: '',
+    comments: '',
+    improvements: []
+  });
+
   // Debug: Log edit simulation data
   React.useEffect(() => {
     if (editSimulation) {
@@ -129,7 +138,8 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
       setParameters({
         ...(response.data.suggested_parameters || {}),
         document_instructions: documentInstructions || undefined,
-        document_name: uploadedFile?.name || undefined
+        document_name: uploadedFile?.name || undefined,
+        first_message: response.data.suggested_first_message || response.data.parameters?.first_message || ''
       });
 
       // Safely handle scenario_type formatting
@@ -213,10 +223,22 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
 
   const startTesting = () => {
     setStep('testing');
-    setMessages([{
+
+    // Initialize messages with system message and first message if available
+    const initialMessages = [{
       role: 'system',
       content: 'Simulation ready! Start the conversation to test it out.'
-    }]);
+    }];
+
+    // Add the first message if it exists
+    if (parameters.first_message) {
+      initialMessages.push({
+        role: 'advisor',
+        content: parameters.first_message
+      });
+    }
+
+    setMessages(initialMessages);
   };
 
   const sendMessage = async () => {
@@ -238,6 +260,14 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
 
       if (!sessionId) {
         setSessionId(response.data.sessionId);
+
+        // If there's a first message (new session), add it before the response
+        if (response.data.firstMessage) {
+          setMessages(prev => [...prev, {
+            role: 'advisor',
+            content: response.data.firstMessage
+          }]);
+        }
       }
 
       setMessages(prev => [...prev, {
@@ -282,6 +312,27 @@ export default function SimulationBuilder({ onClose, onSimulationCreated, editSi
 
   const useSample = () => {
     setScenarioText(`You are the CEO of a tech startup with 50 employees. Your main investor is pressuring you to pivot from B2B to B2C, threatening to pull funding if you don't. Your engineering team is strongly opposed to the pivot. You have 12 months of runway left. The board meeting is next week where you must present your decision.`);
+  };
+
+  const submitFeedback = async () => {
+    try {
+      // For now, just log the feedback and close
+      console.log('Feedback submitted:', feedback);
+
+      // In the future, send to API endpoint
+      // await axios.post(`${API_BASE}/feedback`, {
+      //   simulation_id: simulationId,
+      //   session_id: sessionId,
+      //   ...feedback
+      // });
+
+      // Show success message and close
+      alert('Thank you for your feedback!');
+      onClose();
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      alert('Failed to submit feedback. Please try again.');
+    }
   };
 
   const renderProgressBar = () => {
@@ -1341,6 +1392,42 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
                     </p>
                   </div>
                 )}
+
+                {/* First Message Automation */}
+                <div className="mt-3">
+                  <label className="block text-sm text-gray-700 mb-1">
+                    First Message (Auto-sent when simulation starts)
+                  </label>
+                  <textarea
+                    value={parameters.first_message || ''}
+                    onChange={(e) => setParameters({...parameters, first_message: e.target.value})}
+                    placeholder="e.g., 'Welcome to the merger negotiation simulation. You are the CFO of TechCorp, evaluating a potential acquisition. The board meeting starts in 30 minutes. What would you like to review first?'"
+                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This message automatically sends when a student starts the simulation, setting context immediately.
+                  </p>
+                </div>
+
+                {/* Time Horizon Setting */}
+                <div className="mt-3">
+                  <label className="block text-sm text-gray-700 mb-1">Decision Time Horizon</label>
+                  <select
+                    value={parameters.time_horizon || 'immediate'}
+                    onChange={(e) => setParameters({...parameters, time_horizon: e.target.value})}
+                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="immediate">Immediate (Minutes/Hours)</option>
+                    <option value="short">Short-term (Days/Weeks)</option>
+                    <option value="quarterly">Quarterly (3 Months)</option>
+                    <option value="annual">Annual (1 Year)</option>
+                    <option value="strategic">Strategic (3-5 Years)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Helps AI contextualize the urgency and scope of decisions in the simulation.
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -1404,14 +1491,14 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
 
           {/* Testing Mode */}
           {step === 'testing' && (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col" style={{ minHeight: '500px' }}>
               <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-900">
                   <strong>Testing Mode:</strong> Chat with the AI advisor to test your simulation setup.
                 </p>
               </div>
 
-              <div className="flex-1 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex-1 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg" style={{ maxHeight: '400px' }}>
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`mb-3 ${msg.role === 'student' ? 'text-right' : 'text-left'}`}>
                     <div className={`inline-block max-w-[80%] p-3 rounded-lg ${
@@ -1457,11 +1544,127 @@ Example: You are the CEO of Zara. A celebrity was photographed wearing a pink sc
               </div>
 
               <button
-                onClick={onClose}
+                onClick={() => setStep('feedback')}
                 className="mt-3 w-full px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
               >
                 Done Testing
               </button>
+            </div>
+          )}
+
+          {/* Feedback Form */}
+          {step === 'feedback' && (
+            <div className="flex flex-col h-full">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">How was your simulation experience?</h3>
+                <p className="text-sm text-gray-600">Your feedback helps improve the learning experience</p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Overall Rating */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Overall Experience</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        onClick={() => setFeedback({...feedback, rating})}
+                        className={`px-4 py-2 rounded-lg border transition-colors ${
+                          feedback.rating === rating
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {rating}★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Difficulty Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Difficulty Level</label>
+                  <select
+                    value={feedback.difficulty || ''}
+                    onChange={(e) => setFeedback({...feedback, difficulty: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select difficulty...</option>
+                    <option value="too_easy">Too Easy</option>
+                    <option value="just_right">Just Right</option>
+                    <option value="too_hard">Too Hard</option>
+                  </select>
+                </div>
+
+                {/* Learning Effectiveness */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">How effective was this for learning?</label>
+                  <select
+                    value={feedback.effectiveness || ''}
+                    onChange={(e) => setFeedback({...feedback, effectiveness: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select...</option>
+                    <option value="very_effective">Very Effective</option>
+                    <option value="somewhat_effective">Somewhat Effective</option>
+                    <option value="neutral">Neutral</option>
+                    <option value="not_effective">Not Very Effective</option>
+                  </select>
+                </div>
+
+                {/* Comments */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Additional Comments (Optional)</label>
+                  <textarea
+                    value={feedback.comments || ''}
+                    onChange={(e) => setFeedback({...feedback, comments: e.target.value})}
+                    placeholder="What worked well? What could be improved?"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={4}
+                  />
+                </div>
+
+                {/* What to improve */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">What should we improve?</label>
+                  <div className="space-y-2">
+                    {['AI responses', 'Scenario clarity', 'Challenge level', 'Engagement', 'Realism'].map((item) => (
+                      <label key={item} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={feedback.improvements?.includes(item) || false}
+                          onChange={(e) => {
+                            const improvements = feedback.improvements || [];
+                            if (e.target.checked) {
+                              setFeedback({...feedback, improvements: [...improvements, item]});
+                            } else {
+                              setFeedback({...feedback, improvements: improvements.filter(i => i !== item)});
+                            }
+                          }}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={onClose}
+                  className="flex-1 px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Skip Feedback
+                </button>
+                <button
+                  onClick={submitFeedback}
+                  disabled={!feedback.rating}
+                  className="flex-1 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  Submit Feedback
+                </button>
+              </div>
             </div>
           )}
         </div>

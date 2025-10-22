@@ -149,6 +149,7 @@ class SimulationEngine {
     const scenario = simulation.scenario_text || simulation.scenario || '';
     const actors = simulation.actors || [];
     const objectives = simulation.objectives || [];
+    const params = simulation.parameters || {};
 
     // Find the student's actor configuration
     const studentActor = actors.find(a => a.is_student_role);
@@ -162,6 +163,20 @@ SCENARIO:
 ${scenario}
 
 `;
+
+    // Add time horizon context if specified
+    if (params.time_horizon) {
+      const horizonDescriptions = {
+        'immediate': 'The decisions in this simulation have IMMEDIATE consequences (within minutes/hours). Focus on urgency and quick thinking.',
+        'short': 'The decisions in this simulation have SHORT-TERM impact (days/weeks). Consider near-term implications and quick wins.',
+        'quarterly': 'The decisions in this simulation affect QUARTERLY results (3 months). Balance immediate needs with medium-term planning.',
+        'annual': 'The decisions in this simulation span an ANNUAL cycle (1 year). Think about seasonal patterns and yearly objectives.',
+        'strategic': 'The decisions in this simulation have STRATEGIC implications (3-5 years). Focus on long-term positioning and sustainable growth.'
+      };
+
+      const horizonContext = horizonDescriptions[params.time_horizon] || horizonDescriptions['immediate'];
+      prompt += `TIME HORIZON: ${horizonContext}\n\n`;
+    }
 
     // Add ORIGINAL DOCUMENT TEXT as primary source (NOT AI analysis)
     // The raw text is the authoritative source for simulation context
@@ -195,7 +210,6 @@ ${scenario}
     }
 
     // Add legacy document context from parameters if no document context provided
-    const params = simulation.parameters || {};
     if (!documentContext && params.document_name) {
       prompt += `SOURCE DOCUMENT: ${params.document_name}\n`;
       if (params.document_instructions) {
