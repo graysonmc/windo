@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Settings, User, TrendingUp, Clock, Users, Play, Bookmark, Heart, MessageCircle, BarChart3, Calendar, FileText, Folder, Repeat2, Share2, Coins, X, AlertCircle, Trash2 } from 'lucide-react';
+import { Search, Plus, Settings, User, Clock, Users, Play, Bookmark, Heart, MessageCircle, BarChart3, Repeat2, Share2, Coins, X, AlertCircle, Trash2 } from 'lucide-react';
 import SimulationBuilder from '../components/SimulationBuilder';
 import axios from 'axios';
 
 const API_BASE = 'http://localhost:3000/api';
 
 export default function WindoHomePage() {
-  const [activeTab, setActiveTab] = useState('for-you');
+  const [activeTab, setActiveTab] = useState('my-simulations');
   const [showSettings, setShowSettings] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showBuildModal, setShowBuildModal] = useState(false);
@@ -25,154 +25,8 @@ export default function WindoHomePage() {
   // Edit simulation state
   const [editingSimulation, setEditingSimulation] = useState(null);
 
-  const forYouSimulations = [
-    {
-      id: 1,
-      title: "The Zara Pink Scarf Surge",
-      creator: "Prof. Sarah Chen",
-      avatar: "SC",
-      subject: "Supply Chain Management",
-      difficulty: "Intermediate",
-      duration: "45-60 min",
-      participants: 234,
-      trending: true,
-      timestamp: "Recommended",
-      description: "Navigate a sudden demand spike as CEO of Zara. Make critical decisions about inventory, production, and distribution under time pressure.",
-      hashtags: ["#SupplyChain", "#Retail", "#Operations", "#Strategy"],
-      objectives: ["Financial Modeling", "Risk Assessment", "Strategic Decision-Making"],
-      thumbnail: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      creditCost: 110,
-      likes: 342,
-      comments: 78,
-      reposts: 45
-    },
-    {
-      id: 2,
-      title: "Tesla's Autopilot Dilemma",
-      creator: "Prof. Michael Torres",
-      avatar: "MT",
-      subject: "Business Ethics",
-      difficulty: "Advanced",
-      duration: "60-90 min",
-      participants: 189,
-      trending: false,
-      timestamp: "Recommended",
-      description: "Face an ethical crisis as Tesla's Head of Product Safety. Balance innovation, public safety, and corporate responsibility.",
-      hashtags: ["#Ethics", "#Automotive", "#AI", "#Safety"],
-      objectives: ["Ethical Reasoning", "Stakeholder Analysis", "Crisis Management"],
-      thumbnail: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-      creditCost: 175,
-      likes: 289,
-      comments: 94,
-      reposts: 56
-    },
-    {
-      id: 3,
-      title: "Netflix Content Strategy Pivot",
-      creator: "Prof. James Liu",
-      avatar: "JL",
-      subject: "Digital Strategy",
-      difficulty: "Intermediate",
-      duration: "30-45 min",
-      participants: 412,
-      trending: true,
-      timestamp: "Recommended",
-      description: "Lead Netflix's content strategy in emerging markets. Allocate budget across local productions vs. global hits.",
-      hashtags: ["#Streaming", "#ContentStrategy", "#GlobalMarkets", "#Entertainment"],
-      objectives: ["Market Analysis", "Resource Allocation", "Data-Driven Decisions"],
-      thumbnail: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-      creditCost: 95,
-      likes: 456,
-      comments: 102,
-      reposts: 67
-    }
-  ];
-
-  const followingContent = [
-    {
-      id: 1,
-      title: "AI Ethics in Healthcare Decision-Making",
-      creator: "Prof. Sarah Chen",
-      avatar: "SC",
-      subject: "Medical Ethics",
-      difficulty: "Advanced",
-      duration: "60-75 min",
-      participants: 156,
-      timestamp: "2 hours ago",
-      description: "Navigate complex ethical decisions as a hospital administrator implementing AI diagnostic tools. Balance accuracy, bias, patient autonomy, and regulatory compliance.",
-      hashtags: ["#AIEthics", "#Healthcare", "#Innovation", "#PatientCare"],
-      objectives: ["Ethical Framework", "AI Governance", "Stakeholder Management"],
-      thumbnail: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      likes: 45,
-      comments: 12,
-      reposts: 8,
-      creditCost: 150
-    },
-    {
-      id: 2,
-      title: "Cryptocurrency Exchange Crisis",
-      creator: "Prof. Michael Torres",
-      avatar: "MT",
-      subject: "Financial Technology",
-      difficulty: "Intermediate",
-      duration: "45-60 min",
-      participants: 203,
-      timestamp: "5 hours ago",
-      description: "Manage a security breach at a major crypto exchange. Make real-time decisions about user communication, fund recovery, and regulatory reporting.",
-      hashtags: ["#Fintech", "#CyberSecurity", "#CrisisManagement", "#Blockchain"],
-      objectives: ["Crisis Response", "Risk Management", "Regulatory Compliance"],
-      thumbnail: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-      likes: 89,
-      comments: 23,
-      reposts: 15,
-      creditCost: 120
-    },
-    {
-      id: 3,
-      title: "Sustainable Fashion Supply Chain",
-      creator: "Prof. James Liu",
-      avatar: "JL",
-      subject: "Sustainability",
-      difficulty: "Intermediate",
-      duration: "50-65 min",
-      participants: 178,
-      timestamp: "1 day ago",
-      description: "Transform a fast fashion brand's supply chain to meet sustainability goals. Balance cost pressures, consumer expectations, and environmental impact.",
-      hashtags: ["#Sustainability", "#SupplyChain", "#ESG", "#Fashion"],
-      objectives: ["Sustainable Operations", "Change Management", "Cost-Benefit Analysis"],
-      thumbnail: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-      likes: 67,
-      comments: 19,
-      reposts: 12,
-      creditCost: 135
-    }
-  ];
-
-  // Mock data removed - now fetched from backend via useEffect
-
-  const myContextItems = [
-    {
-      id: 1,
-      name: "MBA Class Spring 2025",
-      type: "folder",
-      items: 12,
-      lastModified: "Today"
-    },
-    {
-      id: 2,
-      name: "Case Study: Retail Strategy",
-      type: "document",
-      size: "2.4 MB",
-      lastModified: "Yesterday"
-    },
-    {
-      id: 3,
-      name: "Student Performance Data Q1",
-      type: "document",
-      size: "892 KB",
-      lastModified: "3 days ago"
-    }
-  ];
+  // My Groups state
+  const [myGroups, setMyGroups] = useState([]);
 
   // Fetch simulations created by the user
   useEffect(() => {
@@ -405,227 +259,6 @@ export default function WindoHomePage() {
 
   const renderContent = () => {
     switch(activeTab) {
-      case 'for-you':
-        return (
-          <div>
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Recommended For You</h1>
-              <p className="text-gray-600">Discover simulations tailored to your interests and learning goals</p>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {forYouSimulations.map((sim) => (
-                <div key={sim.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 overflow-hidden group">
-                  <div style={{ background: sim.thumbnail }} className="h-32 relative">
-                    {sim.trending && (
-                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1 text-xs font-medium text-orange-600">
-                        <TrendingUp className="w-3 h-3" />
-                        Trending
-                      </div>
-                    )}
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-gray-700">
-                      {sim.timestamp}
-                    </div>
-                  </div>
-                  <div className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                          {sim.title}
-                        </h3>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                            {sim.avatar}
-                          </div>
-                          <span>{sim.creator}</span>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-blue-600 font-medium">{sim.subject}</span>
-                        </div>
-                      </div>
-                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Bookmark className="w-5 h-5 text-gray-400" />
-                      </button>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{sim.description}</p>
-                    
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {sim.hashtags.map((tag, idx) => (
-                        <span key={idx} className="text-xs text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {sim.objectives.map((obj, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium">
-                          {obj}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{sim.duration}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
-                          <span>{sim.participants}</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          sim.difficulty === 'Advanced' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-                        }`}>
-                          {sim.difficulty}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm font-medium text-amber-600">
-                        <Coins className="w-4 h-4" />
-                        <span>{sim.creditCost}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors text-sm">
-                          <Heart className="w-4 h-4" />
-                          <span>{sim.likes}</span>
-                        </button>
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors text-sm">
-                          <MessageCircle className="w-4 h-4" />
-                          <span>{sim.comments}</span>
-                        </button>
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-green-50 text-gray-600 hover:text-green-600 transition-colors text-sm">
-                          <Repeat2 className="w-4 h-4" />
-                          <span>{sim.reposts}</span>
-                        </button>
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-purple-50 text-gray-600 hover:text-purple-600 transition-colors text-sm">
-                          <BarChart3 className="w-4 h-4" />
-                        </button>
-                        <button className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors">
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                        <Play className="w-4 h-4" />
-                        Start
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'following':
-        return (
-          <div>
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Following</h1>
-              <p className="text-gray-600">Latest simulations from creators you follow</p>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {followingContent.map((sim) => (
-                <div key={sim.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 overflow-hidden group">
-                  <div style={{ background: sim.thumbnail }} className="h-32 relative">
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1 text-xs font-medium text-gray-700">
-                      <Clock className="w-3 h-3" />
-                      {sim.timestamp}
-                    </div>
-                  </div>
-                  <div className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                          {sim.title}
-                        </h3>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                            {sim.avatar}
-                          </div>
-                          <span>{sim.creator}</span>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-blue-600 font-medium">{sim.subject}</span>
-                        </div>
-                      </div>
-                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Bookmark className="w-5 h-5 text-gray-400" />
-                      </button>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{sim.description}</p>
-                    
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {sim.hashtags.map((tag, idx) => (
-                        <span key={idx} className="text-xs text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {sim.objectives.map((obj, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md font-medium">
-                          {obj}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{sim.duration}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
-                          <span>{sim.participants}</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          sim.difficulty === 'Advanced' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-                        }`}>
-                          {sim.difficulty}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm font-medium text-amber-600">
-                        <Coins className="w-4 h-4" />
-                        <span>{sim.creditCost}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 text-gray-600 hover:text-red-600 transition-colors text-sm">
-                          <Heart className="w-4 h-4" />
-                          <span>{sim.likes}</span>
-                        </button>
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors text-sm">
-                          <MessageCircle className="w-4 h-4" />
-                          <span>{sim.comments}</span>
-                        </button>
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-green-50 text-gray-600 hover:text-green-600 transition-colors text-sm">
-                          <Repeat2 className="w-4 h-4" />
-                          <span>{sim.reposts}</span>
-                        </button>
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-purple-50 text-gray-600 hover:text-purple-600 transition-colors text-sm">
-                          <BarChart3 className="w-4 h-4" />
-                        </button>
-                        <button className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors">
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                        <Play className="w-4 h-4" />
-                        Start
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
       case 'my-simulations':
         const currentSimulations = mySimsView === 'created' ? mySimulations : participationHistory;
         return (
@@ -864,45 +497,53 @@ export default function WindoHomePage() {
           </div>
         );
 
-      case 'my-context':
+      case 'my-groups':
         return (
           <div>
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">My Context</h1>
-                <p className="text-gray-600">Manage your course materials, data, and resources</p>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">My Groups</h1>
+                <p className="text-gray-600">Manage your class groups and collaborative spaces</p>
               </div>
               <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
                 <Plus className="w-5 h-5" />
-                Upload
+                Create Group
               </button>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              {myContextItems.map((item, idx) => (
-                <div key={item.id} className={`p-4 hover:bg-gray-50 transition-colors flex items-center gap-4 ${
-                  idx !== myContextItems.length - 1 ? 'border-b border-gray-100' : ''
-                }`}>
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    item.type === 'folder' ? 'bg-blue-100' : 'bg-purple-100'
-                  }`}>
-                    {item.type === 'folder' ? (
-                      <Folder className="w-5 h-5 text-blue-600" />
-                    ) : (
-                      <FileText className="w-5 h-5 text-purple-600" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{item.name}</h4>
-                    <p className="text-sm text-gray-500">
-                      {item.type === 'folder' ? `${item.items} items` : item.size} • {item.lastModified}
-                    </p>
-                  </div>
-                  <button className="text-gray-400 hover:text-gray-600">
-                    <Settings className="w-5 h-5" />
-                  </button>
+            {myGroups.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-gray-400" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No groups yet</h3>
+                <p className="text-gray-600 mb-6">Create or join groups to collaborate with your classmates</p>
+                <button className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                  <Plus className="w-5 h-5" />
+                  Create Your First Group
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                {myGroups.map((group, idx) => (
+                  <div key={group.id} className={`p-4 hover:bg-gray-50 transition-colors flex items-center gap-4 ${
+                    idx !== myGroups.length - 1 ? 'border-b border-gray-100' : ''
+                  }`}>
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{group.name}</h4>
+                      <p className="text-sm text-gray-500">
+                        {group.memberCount} members • Last active {group.lastActive}
+                      </p>
+                    </div>
+                    <button className="text-gray-400 hover:text-gray-600">
+                      <Settings className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 
@@ -957,7 +598,7 @@ export default function WindoHomePage() {
           </div>
 
           <div className="flex gap-2">
-            {['for-you', 'following', 'my-simulations', 'my-context'].map((tab) => (
+            {['my-simulations', 'my-groups'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
