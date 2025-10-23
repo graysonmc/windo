@@ -35,7 +35,7 @@
   - Helps AI contextualize responses
 
 - [ ] **Feedback System** (30 mins)
-  - Post-session rating/feedback form
+  - Post-session feedback system
   - Display under conversation in UI
   - Store in database
 
@@ -50,7 +50,13 @@
 - [ ] Session summary generator
 
 ---
+### My Notes
+- review and add scaling features (in google doc)
+- remove socratic enforcement and do close investigation of sim engine
+- narrative state engine (in google doc)
+- scenerio arc generator feeds settings and initial state to narrative state engine
 
+---
 ## Days 1-2: Foundation - Auth & Data Model
 
 **Goal: Multi-user infrastructure**
