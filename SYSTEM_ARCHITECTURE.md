@@ -1057,4 +1057,3 @@ tail -f npm-debug.log
 
 ---
 
-*This document represents the complete system architecture of Windo as of December 2024. For updates and changes, refer to the Git history and changelog.*
