@@ -1,9 +1,9 @@
 # SYSTEM ARCHITECTURE - WINDO PLATFORM
 *Comprehensive Implementation-Level Documentation*
 
-**Last Updated:** December 2024
-**Version:** 2.0 (Complete Rewrite)
-**Status:** Production-Ready MVP
+**Last Updated:** October 24, 2025
+**Version:** 3.0 (Phase 0 - NSM Foundation Complete)
+**Status:** Production-Ready with NSM Architecture
 
 ---
 
@@ -23,81 +23,162 @@
 
 ## Executive Summary
 
-Windo is an AI-powered educational simulation platform that transforms static business case studies into dynamic learning experiences using the Socratic method. The system is built as a Node.js monorepo with stateless architecture, enabling horizontal scaling and reliable performance.
+Windo is an AI-powered educational simulation platform that transforms static business case studies into dynamic learning experiences using the Socratic method. The system now implements a **Narrative State Machine (NSM)** architecture with Actor/Director separation, enabling adaptive, goal-driven simulations.
 
-### Key Statistics
-- **Total Lines of Code:** ~5,000+ lines
-- **API Endpoints:** 28 RESTful endpoints
-- **Database Tables:** 4 PostgreSQL tables with JSONB
-- **File Size Limit:** 10MB for document uploads
-- **AI Model:** OpenAI GPT-4 with 500 token response limit
-- **Response Time:** 2-5 seconds for AI responses
+### Key Statistics (Phase 0 Complete)
+- **Total Lines of Code:** ~7,700+ lines (modular architecture)
+- **API Endpoints:** 30+ RESTful endpoints (14 operational endpoints)
+- **Database Tables:** 5 PostgreSQL tables with JSONB (added director_logs)
+- **Schema Version:** v1.0.0 (enforced via shared contracts)
+- **AI Models:** GPT-4 (Actor) + GPT-3.5-turbo (Director)
+- **Test Coverage:** 12/12 automated tests passing (100%)
+- **Code Reduction:** 55% through modular refactoring
+- **Response Time:** 2-5 seconds (Actor) + 1.7-3.4s (Director, async)
 
 ---
 
 ## Architecture Overview
 
-### System Architecture Diagram
+### System Architecture Diagram (NSM Architecture - Phase 0)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     WEB INTERFACE                           │
-│         React + Vite + Tailwind CSS (Port 5174)            │
-│              SimulationBuilder.jsx (1,675 lines)            │
-└──────────────────────┬──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                     WEB INTERFACE                               │
+│         React + Vite + Tailwind CSS (Port 5173)                │
+│              SimulationBuilder.jsx (1,675 lines)                │
+└──────────────────────┬──────────────────────────────────────────┘
                        │ HTTP/REST
                        ▼
-        ┌──────────────────────────────┐
-        │    EXPRESS API SERVER        │
-        │   Node.js (Port 3000)        │
-        │    server.js (1,293 lines)   │
-        └──────────────┬───────────────┘
-                       │
-        ┌──────────────┴────────────────────────────────────┐
-        │                                                   │
-        ▼                                                   ▼
-  ┌─────────────────┐                            ┌──────────────────┐
-  │  DOCUMENT       │                            │  SCENARIO        │
-  │  PROCESSOR      │                            │  PARSER          │
-  │  (274 lines)    │                            │  (352 lines)     │
-  └────────┬────────┘                            └────────┬─────────┘
-           │                                              │
-           └──────────────────┬─────────────────────────┘
-                              │
-                              ▼
-                 ┌────────────────────────────┐
-                 │   SUPABASE DATABASE        │
-                 │   PostgreSQL + JSONB       │
-                 │   4 Tables + Indexes       │
-                 └────────────────────────────┘
-                              │
-                              ▼
-                  ┌────────────────────────┐
-                  │  SIMULATION ENGINE     │
-                  │  GPT-4 Integration     │
-                  │  (600 lines)           │
-                  └────────────────────────┘
+        ┌──────────────────────────────────────┐
+        │    EXPRESS API SERVER (MODULAR)      │
+        │      Node.js (Port 3000)             │
+        │      server.js (857 lines)           │
+        │                                      │
+        │  ┌─────────────────────────────┐    │
+        │  │  Feature Routers            │    │
+        │  │  - translation-router.js    │    │
+        │  │  - student-router.js        │    │
+        │  │  - professor-router.js      │    │
+        │  │  - simulation-router.js     │    │
+        │  │  - health-router.js         │    │
+        │  └─────────────────────────────┘    │
+        └─────────┬────────────────────────────┘
+                  │
+    ┌─────────────┼─────────────────────────────────────┐
+    │             │                                     │
+    ▼             ▼                                     ▼
+┌────────────┐ ┌──────────────────┐        ┌──────────────────────┐
+│ TRANSLATION│ │  DOCUMENT        │        │  SCENARIO            │
+│ SERVICE    │ │  PROCESSOR       │        │  PARSER              │
+│ (296 lines)│ │  (274 lines)     │        │  (352 lines)         │
+│            │ │                  │        │                      │
+│ Validates  │ │ Processes PDFs,  │        │ AI-powered parsing   │
+│ NSM configs│ │ DOCX, TXT files  │        │ of scenarios         │
+└─────┬──────┘ └────────┬─────────┘        └──────────┬───────────┘
+      │                 │                              │
+      │                 └──────────┬──────────────────┘
+      │                            │
+      ▼                            ▼
+┌────────────────────────────────────────────────────┐
+│         SHARED CONTRACTS PACKAGE                   │
+│           Schema Version: v1.0.0                   │
+│         Zod-based validation (418 lines)           │
+│  - ScenarioOutlineSchema                           │
+│  - DirectorSettingsSchema                          │
+│  - DirectorStateSchema                             │
+└────────────────────────────────────────────────────┘
+                            │
+                            ▼
+                ┌────────────────────────────┐
+                │   SUPABASE DATABASE        │
+                │   PostgreSQL + JSONB       │
+                │   5 Tables + Indexes       │
+                │   - simulations            │
+                │   - simulation_sessions    │
+                │   - documents              │
+                │   - document_versions      │
+                │   - director_logs (NEW)    │
+                └────────────┬───────────────┘
+                             │
+                             ▼
+              ┌──────────────────────────────────┐
+              │   SIMULATION ENGINE              │
+              │   (Orchestrator - 69 lines)      │
+              │                                  │
+              │  ┌────────────────────────────┐  │
+              │  │  ACTOR MODULE              │  │
+              │  │  GPT-4 (600 lines)         │  │
+              │  │  - Conversation processing │  │
+              │  │  - Trigger evaluation      │  │
+              │  │  - System prompt building  │  │
+              │  └────────────────────────────┘  │
+              │                                  │
+              │  ┌────────────────────────────┐  │
+              │  │  DIRECTOR PROTOTYPE        │  │
+              │  │  GPT-3.5-turbo (248 lines) │  │
+              │  │  - Phase detection         │  │
+              │  │  - Student state tracking  │  │
+              │  │  - Observation mode (async)│  │
+              │  └────────────────────────────┘  │
+              └──────────────────────────────────┘
 ```
 
-### Monorepo Structure
+### Monorepo Structure (Phase 0 - Refactored)
 
 ```bash
 windo/
 ├── packages/
-│   ├── api/                    # Express REST API server
-│   │   ├── server.js           # Main API application (1,293 lines)
+│   ├── api/                           # Express REST API server (REFACTORED)
+│   │   ├── server.js                  # Orchestrator (857 lines, -41%)
+│   │   ├── routers/                   # Feature routers (NEW)
+│   │   │   ├── health-router.js       # Health check endpoint
+│   │   │   ├── translation-router.js  # NSM validation gateway
+│   │   │   ├── student-router.js      # Student interactions
+│   │   │   ├── professor-router.js    # Professor management
+│   │   │   └── simulation-router.js   # Simulation state/export
+│   │   ├── services/
+│   │   │   ├── translation-service.js # NSM validation (296 lines, NEW)
+│   │   │   ├── document-processor.js  # File processing (274 lines)
+│   │   │   └── scenario-parser.js     # AI parsing (352 lines)
 │   │   ├── database/
-│   │   │   └── supabase.js     # Database helpers (385 lines)
-│   │   └── services/
-│   │       ├── document-processor.js  # File processing (274 lines)
-│   │       └── scenario-parser.js     # AI parsing (352 lines)
-│   ├── core/
-│   │   └── simulation-engine.js       # AI conversation engine (600 lines)
-│   └── cli/
-│       └── index.js            # Terminal interface (489 lines)
+│   │   │   └── supabase.js            # Database helpers (385 lines)
+│   │   └── test-translation-service.js # Test suite (12 tests, NEW)
+│   │
+│   ├── core/                          # Simulation engine (REFACTORED)
+│   │   ├── simulation-engine.js       # Orchestrator (69 lines, -88%)
+│   │   ├── director-prototype.js      # Director AI (248 lines, NEW)
+│   │   └── modules/                   # Engine modules (NEW)
+│   │       └── actor-module.js        # Actor AI (600 lines)
+│   │
+│   ├── shared-contracts/              # NSM schemas (NEW PACKAGE)
+│   │   ├── package.json               # v1.0.0
+│   │   └── src/
+│   │       ├── index.js
+│   │       └── schemas/
+│   │           ├── scenario-outline.js    # Goal/trigger schemas
+│   │           ├── director-settings.js   # Director config
+│   │           ├── director-state.js      # Runtime state
+│   │           └── index.js               # Exports
+│   │
+│   ├── cli/
+│   │   └── index.js                   # Terminal interface (489 lines)
+│   │
+│   └── shared/
+│       └── src/                       # Legacy shared utilities
+│
 ├── apps/
-│   └── web/                    # React web application
+│   └── web/                           # React web application
 │       └── src/
+│           └── components/
+│               └── SimulationBuilder.jsx  # Builder UI (1,675 lines)
+│
+├── migrations/
+│   └── 001_director_logs.sql         # Director logging table (NEW)
+│
+├── PHASE_0_COMPLETE.md                # Phase 0 report (NEW)
+├── NARRATIVE_STATE_MACHINE.md         # NSM architecture doc
+├── SIMULATION_BUILDER_V2.md           # Builder V2 spec
+└── SYSTEM_ARCHITECTURE.md             # This document
 │           ├── pages/
 │           │   └── HomePage.jsx        # Dashboard (500+ lines)
 │           └── components/
