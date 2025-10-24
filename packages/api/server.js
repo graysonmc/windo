@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import multer from 'multer';
 import SimulationEngine from '../core/simulation-engine.js';
-import { db } from './database/supabase.js';
+import DirectorPrototype from '../core/director-prototype.js';
+import { db, supabase } from './database/supabase.js';
 import ScenarioParser from './services/scenario-parser.js';
 import DocumentProcessor from './services/document-processor.js';
 
@@ -48,8 +49,60 @@ const engine = new SimulationEngine();
 // Create a single instance of the scenario parser
 const parser = new ScenarioParser();
 
+// Create Director prototype instance (observation mode only)
+const director = new DirectorPrototype(engine.openai);
+
 // Create a single instance of the document processor
 const documentProcessor = new DocumentProcessor();
+
+// ============================================================================
+// DIRECTOR PROTOTYPE - Analysis and Logging
+// ============================================================================
+
+/**
+ * Analyze conversation with Director prototype (async, non-blocking)
+ * Logs suggestions to database for evaluation
+ */
+async function analyzeWithDirector(simulation, session, studentInput) {
+  try {
+    // Only run if enabled via environment variable
+    if (process.env.DIRECTOR_PROTOTYPE_ENABLED !== 'true') {
+      return;
+    }
+
+    console.log(`[Director] Analyzing session ${session.id}, message #${session.conversation_history.length}`);
+
+    // Run Director analysis
+    const analysis = await director.analyzeConversation(
+      simulation,
+      session.conversation_history,
+      studentInput
+    );
+
+    console.log(`[Director] Phase: ${analysis.current_phase}, State: ${analysis.student_state}, Confidence: ${analysis.confidence}`);
+    console.log(`[Director] Suggestion: ${analysis.suggestion}`);
+    console.log(`[Director] Cost: $${analysis.cost}, Latency: ${analysis.latency_ms}ms`);
+
+    // Save to database
+    const { error } = await supabase
+      .from('director_logs')
+      .insert({
+        session_id: session.id,
+        simulation_id: simulation.id,
+        message_number: session.conversation_history.length,
+        analysis: analysis
+      });
+
+    if (error) {
+      console.error('[Director] Failed to save log:', error);
+    } else {
+      console.log(`[Director] Analysis saved successfully`);
+    }
+  } catch (error) {
+    console.error('[Director] Analysis failed:', error);
+    // Don't throw - this is background analysis, shouldn't break main flow
+  }
+}
 
 // ============================================================================
 // SETUP ENDPOINTS - Parse and configure simulations
@@ -878,6 +931,11 @@ app.post('/api/student/respond', async (req, res) => {
         document_context_used: true
       });
     }
+
+    // DIRECTOR PROTOTYPE: Analyze conversation (async, non-blocking)
+    // This runs in the background and logs suggestions for evaluation
+    analyzeWithDirector(simulation, updatedSession, studentInput)
+      .catch(err => console.error('[Director] Background analysis error:', err));
 
     // Check if this is a new session with a first message
     const isNewSession = !req.body.sessionId && simulation.parameters?.first_message;
