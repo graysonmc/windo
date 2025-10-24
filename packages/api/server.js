@@ -11,6 +11,13 @@ import ScenarioParser from './services/scenario-parser.js';
 import DocumentProcessor from './services/document-processor.js';
 import TranslationService from './services/translation-service.js';
 
+// Import router factories
+import healthRouter from './routers/health-router.js';
+import createTranslationRouter from './routers/translation-router.js';
+import createStudentRouter from './routers/student-router.js';
+import createProfessorRouter from './routers/professor-router.js';
+import createSimulationRouter from './routers/simulation-router.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -109,111 +116,46 @@ async function analyzeWithDirector(simulation, session, studentInput) {
 }
 
 // ============================================================================
-// TRANSLATION SERVICE - Validation Gateway for NSM
+// MOUNT FEATURE ROUTERS
 // ============================================================================
 
-/**
- * POST /api/translation/validate-outline
- * Validate scenario outline against NSM schemas
- * Body: { outline: {...} }
- */
-app.post('/api/translation/validate-outline', async (req, res) => {
-  try {
-    const { outline } = req.body;
+// Create router instances with dependencies
+const translationRouter = createTranslationRouter(translationService);
+const studentRouter = createStudentRouter({ db, engine, analyzeWithDirector });
+const professorRouter = createProfessorRouter({ db });
+const simulationRouter = createSimulationRouter({ db, engine });
 
-    if (!outline) {
-      return res.status(400).json({
-        error: 'outline is required'
-      });
+// Mount routers on appropriate paths
+app.use('/api/health', healthRouter);
+app.use('/api/translation', translationRouter);
+app.use('/api/student', studentRouter);
+app.use('/api/professor', professorRouter);
+app.use('/api/simulation', simulationRouter);
+
+// Mount simulation list at /api/simulations (the router has /list, so we mount at parent)
+// This makes GET /api/simulations/list work, but we also need GET /api/simulations to work
+// We'll create a redirect or use a custom mounting approach
+const simulationListRouter = express.Router();
+simulationListRouter.get('/', async (req, res) => {
+  try {
+    const filters = {};
+    if (req.query.is_template !== undefined) {
+      filters.is_template = req.query.is_template === 'true';
     }
-
-    const result = await translationService.validateOutline(outline);
-    res.status(result.valid ? 200 : 400).json(result);
-  } catch (error) {
-    console.error('Translation validation error:', error);
-    res.status(500).json({
-      error: 'Validation failed',
-      details: error.message
-    });
-  }
-});
-
-/**
- * POST /api/translation/validate-settings
- * Validate Director settings against NSM schemas
- * Body: { settings: {...} }
- */
-app.post('/api/translation/validate-settings', async (req, res) => {
-  try {
-    const { settings } = req.body;
-
-    if (!settings) {
-      return res.status(400).json({
-        error: 'settings are required'
-      });
-    }
-
-    const result = await translationService.validateSettings(settings);
-    res.status(result.valid ? 200 : 400).json(result);
-  } catch (error) {
-    console.error('Settings validation error:', error);
-    res.status(500).json({
-      error: 'Validation failed',
-      details: error.message
-    });
-  }
-});
-
-/**
- * POST /api/translation/validate-complete
- * Validate complete simulation configuration
- * Body: { scenario_outline: {...}, director_settings: {...} }
- */
-app.post('/api/translation/validate-complete', async (req, res) => {
-  try {
-    const result = await translationService.validateComplete(req.body);
-    res.status(result.valid ? 200 : 400).json(result);
-  } catch (error) {
-    console.error('Complete validation error:', error);
-    res.status(500).json({
-      error: 'Validation failed',
-      details: error.message
-    });
-  }
-});
-
-/**
- * POST /api/translation/snapshot
- * Create validated snapshot for NSM runtime
- * Body: { simulationId: "...", config: {...} }
- */
-app.post('/api/translation/snapshot', async (req, res) => {
-  try {
-    const { simulationId, config } = req.body;
-
-    if (!simulationId || !config) {
-      return res.status(400).json({
-        error: 'simulationId and config are required'
-      });
-    }
-
-    const snapshot = await translationService.createSnapshot(simulationId, config);
-
-    // Optionally save snapshot to database here
-    // await db.saveSnapshot(snapshot);
-
+    const simulations = await db.listSimulations(filters);
     res.status(200).json({
-      success: true,
-      snapshot
+      simulations: simulations,
+      count: simulations.length
     });
   } catch (error) {
-    console.error('Snapshot creation error:', error);
-    res.status(400).json({
-      error: 'Snapshot creation failed',
+    console.error('Error listing simulations:', error);
+    res.status(500).json({
+      error: 'Failed to list simulations',
       details: error.message
     });
   }
 });
+app.use('/api/simulations', simulationListRouter);
 
 // ============================================================================
 // SETUP ENDPOINTS - Parse and configure simulations
@@ -857,566 +799,20 @@ function generateSuggestedTriggers(analysis) {
 }
 
 // ============================================================================
-// PROFESSOR ENDPOINTS - Create and manage simulations
+// (Professor endpoints moved to professor-router.js)
 // ============================================================================
 
-/**
- * POST /api/professor/setup
- * Create a new simulation configuration
- */
-app.post('/api/professor/setup', async (req, res) => {
-  try {
-    const { scenario, instructions, name, actors, objectives, parameters } = req.body;
-
-    if (!scenario || !instructions) {
-      return res.status(400).json({
-        error: 'Both scenario and instructions are required',
-        received: { scenario: !!scenario, instructions: !!instructions }
-      });
-    }
-
-    // Create simulation in database with data from setup system
-    const simulation = await db.createSimulation({
-      name: name || 'Untitled Simulation',
-      scenario_text: scenario,
-      actors: actors || [],
-      objectives: objectives || [],
-      parameters: {
-        duration: parameters?.duration || 20,
-        ai_mode: parameters?.ai_mode || 'challenger',
-        complexity: parameters?.complexity || 'escalating',
-        narrative_freedom: parameters?.narrative_freedom || 0.7,
-        ...parameters,
-        // Legacy: store instructions for backwards compatibility
-        instructions: instructions
-      }
-    });
-
-    res.status(201).json({
-      message: 'Simulation created successfully',
-      simulationId: simulation.id,
-      simulation: simulation
-    });
-  } catch (error) {
-    console.error('Error creating simulation:', error);
-    res.status(500).json({
-      error: 'Failed to create simulation',
-      details: error.message
-    });
-  }
-});
-
 // ============================================================================
-// STUDENT ENDPOINTS - Interact with simulations
+// (Student endpoints moved to student-router.js)
 // ============================================================================
 
-/**
- * POST /api/student/respond
- * Send a message in a simulation session
- * Body: { simulationId, sessionId (optional), studentInput }
- */
-app.post('/api/student/respond', async (req, res) => {
-  try {
-    const { simulationId, sessionId, studentInput } = req.body;
-
-    if (!simulationId) {
-      return res.status(400).json({
-        error: 'simulationId is required'
-      });
-    }
-
-    if (!studentInput || typeof studentInput !== 'string' || studentInput.trim() === '') {
-      return res.status(400).json({
-        error: 'Student input is required and must be a non-empty string'
-      });
-    }
-
-    // Get simulation configuration
-    const simulation = await db.getSimulation(simulationId);
-
-    if (!simulation) {
-      return res.status(404).json({
-        error: 'Simulation not found',
-        simulationId
-      });
-    }
-
-    // Get or create session
-    let session;
-    if (sessionId) {
-      session = await db.getSession(sessionId);
-      if (!session || session.simulation_id !== simulationId) {
-        return res.status(404).json({
-          error: 'Session not found or does not belong to this simulation'
-        });
-      }
-    } else {
-      // Create new session
-      session = await db.createSession(simulationId);
-
-      // Check if simulation has a first message to auto-send
-      if (simulation.parameters && simulation.parameters.first_message) {
-        // Add the first message from AI to the session immediately
-        await db.addMessageToSession(session.id, {
-          role: 'ai_advisor',
-          content: simulation.parameters.first_message,
-          timestamp: new Date().toISOString(),
-          metadata: { auto_generated: true, type: 'first_message' }
-        });
-
-        // Update session with the first message
-        session = await db.getSession(session.id);
-      }
-    }
-
-    // Get document context if available
-    // IMPORTANT: Document context uses RAW TEXT for simulation runtime
-    // AI analysis is ONLY for setup/configuration, NOT runtime context
-    let documentContext = null;
-    if (simulation.document_context && Object.keys(simulation.document_context).length > 0) {
-      documentContext = simulation.document_context;
-    } else if (simulation.source_document_id) {
-      // Fetch document if not in context
-      try {
-        const document = await db.getDocument(simulation.source_document_id);
-        if (document) {
-          // Structure for RUNTIME context - prioritizes RAW TEXT
-          documentContext = {
-            // PRIMARY: Raw OCR/extracted text - this is what the AI uses
-            raw_text: document.raw_text,
-
-            // METADATA ONLY: For reference, not for AI decisions
-            instructions: document.processing_instructions,
-            metadata: {
-              file_name: document.file_name,
-              file_type: document.file_type,
-              uploaded_at: document.uploaded_at,
-              uploaded_by: document.uploaded_by
-            }
-
-            // NOTE: We do NOT include AI analysis (summary, key_points, etc)
-            // Those are ONLY for setup/configuration, not runtime
-          };
-
-          // Cache document context in simulation for future use
-          await db.updateSimulation(simulationId, {
-            document_context: documentContext
-          });
-        }
-      } catch (docError) {
-        console.error('Error fetching document context:', docError);
-        // Continue without document context
-      }
-    }
-
-    // Process the message with AI including document context
-    const aiResult = await engine.processMessage(
-      simulation,
-      session.conversation_history,
-      studentInput,
-      documentContext
-    );
-
-    // Extract response and metadata
-    const aiResponse = typeof aiResult === 'string' ? aiResult : aiResult.message;
-    const metadata = typeof aiResult === 'object' ? aiResult.metadata : {};
-
-    // Add student message to history
-    await db.addMessageToSession(session.id, {
-      role: 'student',
-      content: studentInput,
-      timestamp: new Date().toISOString()
-    });
-
-    // Add AI response to history
-    const updatedSession = await db.addMessageToSession(session.id, {
-      role: 'ai_advisor',
-      content: aiResponse,
-      timestamp: new Date().toISOString(),
-      metadata: metadata
-    });
-
-    // Update session metadata if document context was used
-    if (metadata.document_context_used) {
-      await db.updateSession(session.id, {
-        document_context_used: true
-      });
-    }
-
-    // DIRECTOR PROTOTYPE: Analyze conversation (async, non-blocking)
-    // This runs in the background and logs suggestions for evaluation
-    analyzeWithDirector(simulation, updatedSession, studentInput)
-      .catch(err => console.error('[Director] Background analysis error:', err));
-
-    // Check if this is a new session with a first message
-    const isNewSession = !req.body.sessionId && simulation.parameters?.first_message;
-
-    res.status(200).json({
-      success: true,
-      response: aiResponse,
-      sessionId: session.id,
-      simulationId: simulation.id,
-      messageCount: updatedSession.conversation_history.length,
-      documentContextUsed: metadata.document_context_used || false,
-      triggersActivated: metadata.triggers_activated || [],
-      firstMessage: isNewSession ? simulation.parameters.first_message : null
-    });
-
-  } catch (error) {
-    console.error('Error processing student response:', error);
-    res.status(500).json({
-      error: 'Failed to process student input',
-      details: error.message
-    });
-  }
-});
-
 // ============================================================================
-// CONFIGURATION ENDPOINTS - Edit simulations
+// (Configuration endpoints moved to professor-router.js)
 // ============================================================================
 
-/**
- * PATCH /api/professor/edit
- * Update simulation configuration
- * Body: { simulationId, name?, scenario?, instructions?, actors?, objectives?, parameters? }
- */
-app.patch('/api/professor/edit', async (req, res) => {
-  try {
-    const { simulationId, name, scenario, instructions, actors, objectives, parameters } = req.body;
-
-    if (!simulationId) {
-      return res.status(400).json({
-        error: 'simulationId is required'
-      });
-    }
-
-    // Build update object
-    const updates = {};
-
-    if (name) {
-      updates.name = name;
-    }
-
-    if (scenario) {
-      updates.scenario_text = scenario;
-    }
-
-    if (actors) {
-      updates.actors = actors;
-    }
-
-    if (objectives) {
-      updates.objectives = objectives;
-    }
-
-    if (parameters || instructions) {
-      // Get current simulation to merge parameters
-      const current = await db.getSimulation(simulationId);
-      updates.parameters = {
-        ...current.parameters,
-        ...parameters
-      };
-
-      // Legacy: support instructions field
-      if (instructions) {
-        updates.parameters.instructions = instructions;
-      }
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({
-        error: 'At least one field must be provided to update'
-      });
-    }
-
-    const updatedSimulation = await db.updateSimulation(simulationId, updates);
-
-    res.status(200).json({
-      message: 'Simulation updated successfully',
-      simulation: updatedSimulation
-    });
-
-  } catch (error) {
-    console.error('Error editing simulation:', error);
-    res.status(500).json({
-      error: 'Failed to edit simulation',
-      details: error.message
-    });
-  }
-});
-
 // ============================================================================
-// STATE & EXPORT ENDPOINTS
+// (State & export endpoints moved to simulation-router.js)
 // ============================================================================
-
-/**
- * GET /api/simulation/state
- * Get current state of a simulation or session
- * Query: simulationId (required), sessionId (optional)
- */
-app.get('/api/simulation/state', async (req, res) => {
-  try {
-    const { simulationId, sessionId } = req.query;
-
-    if (!simulationId) {
-      return res.status(400).json({
-        error: 'simulationId query parameter is required'
-      });
-    }
-
-    const simulation = await db.getSimulation(simulationId);
-
-    if (!simulation) {
-      return res.status(404).json({
-        error: 'Simulation not found'
-      });
-    }
-
-    // If sessionId provided, include session data
-    if (sessionId) {
-      const session = await db.getSession(sessionId);
-
-      if (!session || session.simulation_id !== simulationId) {
-        return res.status(404).json({
-          error: 'Session not found or does not belong to this simulation'
-        });
-      }
-
-      res.status(200).json({
-        simulation: simulation,
-        session: {
-          id: session.id,
-          state: session.state,
-          conversationHistory: session.conversation_history,
-          messageCount: session.conversation_history.length,
-          startedAt: session.started_at,
-          lastActivityAt: session.last_activity_at
-        }
-      });
-    } else {
-      // Just return simulation configuration
-      res.status(200).json({
-        simulation: simulation
-      });
-    }
-
-  } catch (error) {
-    console.error('Error getting simulation state:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve simulation state',
-      details: error.message
-    });
-  }
-});
-
-/**
- * GET /api/simulation/export
- * Export a simulation session
- * Query: sessionId (required), format (optional: 'json' or 'text')
- */
-app.get('/api/simulation/export', async (req, res) => {
-  try {
-    const { sessionId, format } = req.query;
-
-    if (!sessionId) {
-      return res.status(400).json({
-        error: 'sessionId query parameter is required'
-      });
-    }
-
-    const session = await db.getSession(sessionId);
-
-    if (!session) {
-      return res.status(404).json({
-        error: 'Session not found'
-      });
-    }
-
-    const simulation = session.simulations; // Joined from database query
-
-    const exportData = {
-      sessionId: session.id,
-      simulationId: simulation.id,
-      simulationName: simulation.name,
-      scenario: simulation.scenario_text,
-      conversation: session.conversation_history,
-      metadata: {
-        startedAt: session.started_at,
-        completedAt: session.completed_at,
-        totalMessages: session.conversation_history.length,
-        exportedAt: new Date().toISOString()
-      }
-    };
-
-    if (format === 'text') {
-      res.setHeader('Content-Type', 'text/plain');
-      res.setHeader('Content-Disposition', `attachment; filename="session-${session.id}.txt"`);
-
-      let textExport = `Simulation Session Export\n`;
-      textExport += `Session ID: ${session.id}\n`;
-      textExport += `Simulation: ${simulation.name}\n`;
-      textExport += `Started: ${new Date(session.started_at).toLocaleString()}\n`;
-      textExport += `Exported: ${new Date().toLocaleString()}\n`;
-      textExport += `\n=== SCENARIO ===\n${simulation.scenario_text}\n`;
-      textExport += `\n=== CONVERSATION ===\n`;
-      textExport += engine.formatConversationForExport(simulation, session.conversation_history);
-
-      res.status(200).send(textExport);
-    } else {
-      res.status(200).json(exportData);
-    }
-
-  } catch (error) {
-    console.error('Error exporting simulation:', error);
-    res.status(500).json({
-      error: 'Failed to export simulation',
-      details: error.message
-    });
-  }
-});
-
-/**
- * DELETE /api/simulation/clear
- * Clear or delete simulation/session
- * Query: sessionId (to clear session) OR simulationId (to delete simulation)
- */
-app.delete('/api/simulation/clear', async (req, res) => {
-  try {
-    const { sessionId, simulationId } = req.query;
-
-    if (!sessionId && !simulationId) {
-      return res.status(400).json({
-        error: 'Either sessionId or simulationId query parameter is required'
-      });
-    }
-
-    if (sessionId) {
-      // Delete specific session
-      await db.deleteSession(sessionId);
-      res.status(200).json({
-        success: true,
-        message: 'Session deleted successfully'
-      });
-    } else if (simulationId) {
-      // Delete simulation (cascades to sessions)
-      await db.deleteSimulation(simulationId);
-      res.status(200).json({
-        success: true,
-        message: 'Simulation and all associated sessions deleted successfully'
-      });
-    }
-
-  } catch (error) {
-    console.error('Error clearing simulation:', error);
-    res.status(500).json({
-      error: 'Failed to clear simulation',
-      details: error.message
-    });
-  }
-});
-
-/**
- * GET /api/simulations
- * List all simulations (optionally filtered)
- * Query: is_template (optional boolean)
- */
-app.get('/api/simulations', async (req, res) => {
-  try {
-    const filters = {};
-
-    if (req.query.is_template !== undefined) {
-      filters.is_template = req.query.is_template === 'true';
-    }
-
-    const simulations = await db.listSimulations(filters);
-
-    res.status(200).json({
-      simulations: simulations,
-      count: simulations.length
-    });
-
-  } catch (error) {
-    console.error('Error listing simulations:', error);
-    res.status(500).json({
-      error: 'Failed to list simulations',
-      details: error.message
-    });
-  }
-});
-
-/**
- * GET /api/professor/simulations
- * Get simulations created by a professor
- * Query: created_by (optional - professor ID/username)
- */
-app.get('/api/professor/simulations', async (req, res) => {
-  try {
-    const filters = { is_template: false };
-
-    if (req.query.created_by) {
-      filters.created_by = req.query.created_by;
-    }
-
-    const simulations = await db.listSimulations(filters);
-
-    res.status(200).json({
-      simulations: simulations,
-      count: simulations.length
-    });
-
-  } catch (error) {
-    console.error('Error listing professor simulations:', error);
-    res.status(500).json({
-      error: 'Failed to list simulations',
-      details: error.message
-    });
-  }
-});
-
-/**
- * GET /api/student/sessions
- * Get simulation sessions for a student
- * Query: student_id (optional), state (optional)
- */
-app.get('/api/student/sessions', async (req, res) => {
-  try {
-    const filters = {};
-
-    if (req.query.student_id) {
-      filters.student_id = req.query.student_id;
-    }
-
-    if (req.query.state) {
-      filters.state = req.query.state;
-    }
-
-    const sessions = await db.listAllSessions(filters);
-
-    res.status(200).json({
-      sessions: sessions,
-      count: sessions.length
-    });
-
-  } catch (error) {
-    console.error('Error listing student sessions:', error);
-    res.status(500).json({
-      error: 'Failed to list sessions',
-      details: error.message
-    });
-  }
-});
-
-// ============================================================================
-// HEALTH CHECK
-// ============================================================================
-
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date(),
-    database: 'connected'
-  });
-});
 
 // ============================================================================
 // ERROR HANDLERS
