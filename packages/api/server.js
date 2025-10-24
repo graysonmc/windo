@@ -9,6 +9,7 @@ import DirectorPrototype from '../core/director-prototype.js';
 import { db, supabase } from './database/supabase.js';
 import ScenarioParser from './services/scenario-parser.js';
 import DocumentProcessor from './services/document-processor.js';
+import TranslationService from './services/translation-service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -54,6 +55,9 @@ const director = new DirectorPrototype(engine.openai);
 
 // Create a single instance of the document processor
 const documentProcessor = new DocumentProcessor();
+
+// Create translation service instance
+const translationService = new TranslationService();
 
 // ============================================================================
 // DIRECTOR PROTOTYPE - Analysis and Logging
@@ -103,6 +107,113 @@ async function analyzeWithDirector(simulation, session, studentInput) {
     // Don't throw - this is background analysis, shouldn't break main flow
   }
 }
+
+// ============================================================================
+// TRANSLATION SERVICE - Validation Gateway for NSM
+// ============================================================================
+
+/**
+ * POST /api/translation/validate-outline
+ * Validate scenario outline against NSM schemas
+ * Body: { outline: {...} }
+ */
+app.post('/api/translation/validate-outline', async (req, res) => {
+  try {
+    const { outline } = req.body;
+
+    if (!outline) {
+      return res.status(400).json({
+        error: 'outline is required'
+      });
+    }
+
+    const result = await translationService.validateOutline(outline);
+    res.status(result.valid ? 200 : 400).json(result);
+  } catch (error) {
+    console.error('Translation validation error:', error);
+    res.status(500).json({
+      error: 'Validation failed',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/translation/validate-settings
+ * Validate Director settings against NSM schemas
+ * Body: { settings: {...} }
+ */
+app.post('/api/translation/validate-settings', async (req, res) => {
+  try {
+    const { settings } = req.body;
+
+    if (!settings) {
+      return res.status(400).json({
+        error: 'settings are required'
+      });
+    }
+
+    const result = await translationService.validateSettings(settings);
+    res.status(result.valid ? 200 : 400).json(result);
+  } catch (error) {
+    console.error('Settings validation error:', error);
+    res.status(500).json({
+      error: 'Validation failed',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/translation/validate-complete
+ * Validate complete simulation configuration
+ * Body: { scenario_outline: {...}, director_settings: {...} }
+ */
+app.post('/api/translation/validate-complete', async (req, res) => {
+  try {
+    const result = await translationService.validateComplete(req.body);
+    res.status(result.valid ? 200 : 400).json(result);
+  } catch (error) {
+    console.error('Complete validation error:', error);
+    res.status(500).json({
+      error: 'Validation failed',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/translation/snapshot
+ * Create validated snapshot for NSM runtime
+ * Body: { simulationId: "...", config: {...} }
+ */
+app.post('/api/translation/snapshot', async (req, res) => {
+  try {
+    const { simulationId, config } = req.body;
+
+    if (!simulationId || !config) {
+      return res.status(400).json({
+        error: 'simulationId and config are required'
+      });
+    }
+
+    const snapshot = await translationService.createSnapshot(simulationId, config);
+
+    // Optionally save snapshot to database here
+    // await db.saveSnapshot(snapshot);
+
+    res.status(200).json({
+      success: true,
+      snapshot
+    });
+  } catch (error) {
+    console.error('Snapshot creation error:', error);
+    res.status(400).json({
+      error: 'Snapshot creation failed',
+      details: error.message
+    });
+  }
+});
 
 // ============================================================================
 // SETUP ENDPOINTS - Parse and configure simulations
