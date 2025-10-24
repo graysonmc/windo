@@ -1,0 +1,21 @@
+{
+  "name": "@windo/shared-contracts",
+  "version": "0.1.0",
+  "description": "Shared schemas and type definitions for Windo NSM",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./schemas": "./src/schemas/index.js",
+    "./types": "./src/types/index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["windo", "nsm", "schemas", "contracts"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "zod": "^3.22.4"
+  }
+}
