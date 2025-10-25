@@ -3,7 +3,11 @@
  */
 
 const BaseAgent = require('./base-agent');
+const ParserAgent = require('./parser-agent');
+const SAGAgent = require('./sag-agent');
 
 module.exports = {
-  BaseAgent
+  BaseAgent,
+  ParserAgent,
+  SAGAgent
 };
