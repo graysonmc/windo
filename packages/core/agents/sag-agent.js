@@ -110,6 +110,7 @@ Always respond with valid JSON.`;
     return `Generate a goal-oriented scenario outline for this business simulation:
 
 **Scenario Details:**
+Company: ${parsedData.context.company_name}
 Type: ${parsedData.scenario_type}
 Industry: ${parsedData.industry}
 Situation: ${parsedData.context.situation}
@@ -132,6 +133,9 @@ ${parsedData.key_challenges.join('\n- ')}
 - Difficulty: ${settings.difficulty || 'medium'}
 - Focus Areas: ${(settings.focus_areas || ['critical thinking', 'decision making']).join(', ')}
 - Student Level: ${settings.student_level || 'undergraduate'}
+- AI Mode: ${settings.ai_mode || 'challenger'} (challenger=push back, coach=supportive, expert=informative, adaptive=adjust to student)
+- Time Horizon: ${settings.time_horizon || 'immediate'} (immediate/short/quarterly/annual/strategic)
+- Complexity: ${settings.complexity || 'escalating'} (escalate difficulty as student progresses)
 
 ---
 
@@ -179,6 +183,19 @@ Generate a scenario outline with the following structure:
       "trigger_condition": "<When this encounter should happen>",
       "purpose": "<Why this encounter matters>",
       "challenge_type": "<ethical_dilemma|technical_problem|interpersonal_conflict|strategic_choice>",
+      "personality_mode": "<skeptical|supportive|challenging|neutral|aggressive>",
+      "knowledge_level": "<expert|experienced|novice|misleading>",
+      "hidden_info": [
+        "<Information this actor knows but won't share unless student asks right questions>"
+      ],
+      "loyalties": {
+        "supports": ["<Other actors/interests they support>"],
+        "opposes": ["<Other actors/interests they oppose>"]
+      },
+      "priorities": [
+        "<Priority 1: most important to this actor>",
+        "<Priority 2: secondary concern>"
+      ],
       "socratic_prompts": [
         "<Question that challenges thinking>",
         "<Prompt that reveals complexity>"
@@ -206,16 +223,41 @@ Generate a scenario outline with the following structure:
   ]
 }
 
-IMPORTANT GUIDELINES:
+IMPORTANT GUIDELINES (FROM PROVEN PHASE 0 PATTERNS):
+
+**Socratic Method (CRITICAL):**
+1. Encounters must NEVER provide direct answers or solutions
+2. Use probing questions that challenge assumptions
+3. Make students think critically about consequences and trade-offs
+4. Focus on making them discover insights themselves
+5. Challenge thinking without being dismissive
+6. If student asks for direct answer, redirect with thought-provoking question
+7. Develop thinking process, not just reach an answer
+
+**Goal Design:**
 1. Goals should be OUTCOMES (e.g., "Navigate stakeholder conflict") not tasks (e.g., "Talk to CFO")
 2. Required evidence should be THINKING (e.g., "considers trade-offs") not actions (e.g., "sends email")
+
+**Trigger Design:**
 3. Triggers should activate based on PROGRESS (goals, depth) not just message count
+
+**Encounter Design:**
 4. Encounters should CHALLENGE, not INSTRUCT
-5. Lessons should be DISCOVERED, not told
-6. Tests should measure UNDERSTANDING, not just completion
-7. Avoid rigid sequencing - use dependencies sparingly
-8. Design for ${settings.difficulty || 'medium'} difficulty
-9. Focus on ${(settings.focus_areas || ['critical thinking']).join(', ')}
+5. Use personality_mode and knowledge_level from Phase 0 (skeptical, supportive, expert, misleading)
+6. Hidden info should require RIGHT QUESTIONS to unlock
+7. Loyalties create realistic conflicts and alliances
+8. Priorities should create tension between competing concerns
+
+**Learning Design:**
+9. Lessons should be DISCOVERED, not told
+10. Tests should measure UNDERSTANDING, not just completion
+11. Avoid rigid sequencing - use dependencies sparingly
+
+**Adaptation:**
+12. Design for ${settings.difficulty || 'medium'} difficulty
+13. Focus on ${(settings.focus_areas || ['critical thinking']).join(', ')}
+14. AI Mode ${settings.ai_mode || 'challenger'} should influence encounter personalities
+15. Time Horizon ${settings.time_horizon || 'immediate'} should affect urgency and scope
 
 Return ONLY the JSON object, no additional text.`;
   }
@@ -295,7 +337,7 @@ Return ONLY the JSON object, no additional text.`;
   }
 
   /**
-   * Validate encounters array
+   * Validate encounters array (with Phase 0 attributes)
    * @param {Array} encounters - Encounters from LLM
    * @returns {Array} Validated encounters
    */
@@ -308,6 +350,14 @@ Return ONLY the JSON object, no additional text.`;
       trigger_condition: encounter.trigger_condition || '',
       purpose: encounter.purpose || '',
       challenge_type: encounter.challenge_type || 'strategic_choice',
+      personality_mode: encounter.personality_mode || 'neutral', // Phase 0: skeptical, supportive, challenging, neutral, aggressive
+      knowledge_level: encounter.knowledge_level || 'experienced', // Phase 0: expert, experienced, novice, misleading
+      hidden_info: Array.isArray(encounter.hidden_info) ? encounter.hidden_info : [],
+      loyalties: {
+        supports: Array.isArray(encounter.loyalties?.supports) ? encounter.loyalties.supports : [],
+        opposes: Array.isArray(encounter.loyalties?.opposes) ? encounter.loyalties.opposes : []
+      },
+      priorities: Array.isArray(encounter.priorities) ? encounter.priorities : [],
       socratic_prompts: Array.isArray(encounter.socratic_prompts) ? encounter.socratic_prompts : []
     }));
   }
@@ -346,7 +396,7 @@ Return ONLY the JSON object, no additional text.`;
   }
 
   /**
-   * Get default simulation settings
+   * Get default simulation settings (based on Phase 0 proven patterns)
    * @returns {Object} Default settings
    */
   getDefaultSettings() {
@@ -354,7 +404,10 @@ Return ONLY the JSON object, no additional text.`;
       difficulty: 'medium',
       focus_areas: ['critical thinking', 'decision making'],
       student_level: 'undergraduate',
-      socratic_intensity: 'moderate'
+      socratic_intensity: 'moderate',
+      ai_mode: 'challenger', // Phase 0: challenger, coach, expert, adaptive, custom
+      time_horizon: 'immediate', // Phase 0: immediate, short, quarterly, annual, strategic
+      complexity: 'escalating' // Phase 0: escalating complexity over time
     };
   }
 
