@@ -269,6 +269,10 @@ Return ONLY the JSON object, no additional text.`;
    */
   validateOutline(outline) {
     return {
+      scenario_id: outline.scenario_id || `scenario_${Date.now()}`,
+      title: outline.title || 'Untitled Scenario',
+      description: outline.description || 'No description provided',
+      actors: Array.isArray(outline.actors) ? outline.actors : [],
       goals: this.validateGoals(outline.goals),
       rules: this.validateRules(outline.rules),
       triggers: this.validateTriggers(outline.triggers),
