@@ -169,13 +169,17 @@ class MCPProtocolV1 extends IMCPProtocol {
    * @returns {Promise<any>} Data value
    */
   async read(key) {
-    // For latest versioned keys
-    if (key.endsWith('_latest')) {
-      return this.data.get(key);
+    // Get the raw value
+    const value = this.data.get(key);
+
+    // Return undefined if not found
+    if (value === undefined) {
+      return undefined;
     }
 
-    // For regular keys
-    return this.data.get(key);
+    // Deep clone to prevent mutations from affecting stored data
+    // This ensures "immutable history" - agents can't mutate what they read
+    return structuredClone(value);
   }
 
   /**
@@ -192,23 +196,28 @@ class MCPProtocolV1 extends IMCPProtocol {
       throw new Error(`Permission denied: ${agentId} cannot write '${key}' in phase '${this.phase}'`);
     }
 
+    // Deep clone value before storing to prevent future mutations from affecting storage
+    // This ensures immutability - agents can't accidentally corrupt stored data
+    const clonedValue = structuredClone(value);
+
     // Get agent permissions to check preservation rules
     const permissions = this._getAgentPermissions(agentId);
 
     // Progressive enrichment - preserve previous values if required
     if (permissions && this._matchesPattern(key, permissions.preserves)) {
-      // Store versioned copy
-      const versionKey = `${key}_v${Date.now()}`;
-      this.data.set(versionKey, value);
+      // Store versioned copy with collision-proof key
+      // Format: key_v{timestamp}_{uuid} ensures uniqueness even with same-millisecond writes
+      const versionKey = `${key}_v${Date.now()}_${crypto.randomUUID()}`;
+      this.data.set(versionKey, clonedValue);
 
       // Update latest pointer
-      this.data.set(`${key}_latest`, value);
+      this.data.set(`${key}_latest`, clonedValue);
 
       // Also store as current (for backward compatibility)
-      this.data.set(key, value);
+      this.data.set(key, clonedValue);
     } else {
       // Direct overwrite (no versioning)
-      this.data.set(key, value);
+      this.data.set(key, clonedValue);
     }
 
     // Audit log
