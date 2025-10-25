@@ -8,6 +8,7 @@ const SAGAgent = require('./sag-agent');
 const ValidatorAgent = require('./validator-agent');
 const FinalizerAgent = require('./finalizer-agent');
 const DirectorAgent = require('./director-agent');
+const ActorAgent = require('./actor-agent');
 
 module.exports = {
   BaseAgent,
@@ -15,5 +16,6 @@ module.exports = {
   SAGAgent,
   ValidatorAgent,
   FinalizerAgent,
-  DirectorAgent
+  DirectorAgent,
+  ActorAgent
 };
