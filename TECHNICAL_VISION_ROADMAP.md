@@ -2450,7 +2450,689 @@ class AISwarmController {
 - **Emergent Behavior**: Complex patterns from simple rules
 - **Teaching Tool**: Demonstrate market psychology and systemic risks
 
-### Week 29-32: Professor Control & Monitoring
+### Week 29-30: Team Coordination Intelligence
+
+#### Enhanced Team Coordinator with Pattern Detection
+
+The Team Coordinator acts as an AI facilitator that monitors team dynamics and creates meaningful consequences:
+
+```javascript
+class EnhancedTeamCoordinator extends BaseAgent {
+  constructor(protocol: IMCPProtocol) {
+    super(protocol);
+    this.conflictDetector = new ConflictDetectionEngine();
+    this.synergyDetector = new SynergyDetectionEngine();
+    this.interventionHistory = [];
+  }
+
+  async monitorTeam(
+    teamId: string,
+    universe: UnifiedSimulationUniverse
+  ): Promise<void> {
+    // Continuously monitor team interactions
+    await this.protocol.subscribe('team_action', async (action) => {
+      await this.analyzeTeamDynamics(teamId, action);
+    });
+
+    await this.protocol.subscribe('player_decision', async (decision) => {
+      await this.detectPatterns(teamId, decision);
+    });
+  }
+
+  async detectPatterns(teamId: string, newAction: Action): Promise<void> {
+    const teamState = await this.getTeamState(teamId);
+
+    // Run detection engines in parallel
+    const [conflicts, synergies] = await Promise.all([
+      this.conflictDetector.scan(teamState, newAction),
+      this.synergyDetector.scan(teamState, newAction)
+    ]);
+
+    // Handle detected conflicts
+    for (const conflict of conflicts) {
+      await this.handleConflict(teamId, conflict);
+    }
+
+    // Reward detected synergies
+    for (const synergy of synergies) {
+      await this.handleSynergy(teamId, synergy);
+    }
+  }
+
+  async handleConflict(teamId: string, conflict: DetectedConflict): Promise<void> {
+    // Example: CFO cutting budget while CMO increasing spending
+    if (conflict.type === 'resource_allocation_clash') {
+      // Inject conflict event into universe
+      const conflictEvent = {
+        id: `conflict_${Date.now()}`,
+        type: 'team_conflict',
+        severity: conflict.severity,
+        description: `${conflict.player1.role} and ${conflict.player2.role} have conflicting plans`,
+        details: {
+          player1_action: conflict.action1,
+          player2_action: conflict.action2,
+          resource_disputed: conflict.resource
+        },
+        resolution_required: true,
+        deadline: Date.now() + (15 * 60 * 1000) // 15 minutes
+      };
+
+      await this.protocol.broadcast('conflict_detected', conflictEvent);
+
+      // Create forced resolution mechanism
+      await this.initiateConflictResolution(teamId, conflictEvent);
+
+      // Log intervention
+      this.interventionHistory.push({
+        type: 'conflict_injection',
+        conflict: conflictEvent,
+        timestamp: Date.now()
+      });
+    }
+
+    if (conflict.type === 'communication_breakdown') {
+      // Players working on same problem without talking
+      await this.nudgeCommunication(teamId, conflict);
+    }
+
+    if (conflict.type === 'priority_misalignment') {
+      // Team members optimizing for different objectives
+      await this.highlightMisalignment(teamId, conflict);
+    }
+  }
+
+  async handleSynergy(teamId: string, synergy: DetectedSynergy): Promise<void> {
+    if (synergy.type === 'shared_discovery') {
+      // Two players independently researching same solution
+      const bonus = {
+        type: 'collaboration_bonus',
+        description: 'Team members discovered complementary insights',
+        reward: {
+          unlocked_option: synergy.enhanced_solution,
+          confidence_boost: 0.3,
+          time_saved: synergy.efficiency_gain
+        },
+        participants: synergy.players
+      };
+
+      await this.protocol.broadcast('synergy_detected', bonus);
+
+      // Unlock enhanced strategic option
+      await this.unlockTeamBonus(teamId, bonus);
+
+      // Positive feedback to players
+      await this.notifyPlayers(synergy.players, {
+        message: `Great collaboration! Your combined research unlocked: ${bonus.reward.unlocked_option}`,
+        type: 'achievement'
+      });
+    }
+
+    if (synergy.type === 'complementary_skills') {
+      // Players with different expertise working together effectively
+      await this.amplifyCollaboration(teamId, synergy);
+    }
+
+    if (synergy.type === 'knowledge_sharing') {
+      // Player with information shared it with someone who needed it
+      await this.rewardCommunication(teamId, synergy);
+    }
+  }
+
+  async initiateConflictResolution(
+    teamId: string,
+    conflict: ConflictEvent
+  ): Promise<void> {
+    // Create breakout room for conflict resolution
+    const breakoutRoom = await this.protocol.call('breakout', 'create', {
+      participants: [conflict.details.player1, conflict.details.player2],
+      purpose: 'conflict_resolution',
+      duration: 600, // 10 minutes
+      required_outcome: 'consensus'
+    });
+
+    // Set up facilitation
+    await this.protocol.write(`breakout.${breakoutRoom.id}.facilitator`, {
+      type: 'ai_mediator',
+      goal: 'Guide players to resolve resource allocation dispute',
+      techniques: ['active_listening', 'trade_off_analysis', 'win_win_seeking']
+    });
+
+    // If unresolved, escalate to team vote
+    setTimeout(async () => {
+      const resolved = await this.protocol.read(`breakout.${breakoutRoom.id}.resolved`);
+      if (!resolved) {
+        await this.escalateToVote(teamId, conflict);
+      }
+    }, 600000); // 10 minutes
+  }
+}
+```
+
+#### Conflict Detection Engine
+
+```javascript
+class ConflictDetectionEngine {
+  async scan(teamState: TeamState, newAction: Action): Promise<DetectedConflict[]> {
+    const conflicts = [];
+
+    // Check for resource allocation clashes
+    const resourceConflicts = this.detectResourceConflicts(teamState, newAction);
+    conflicts.push(...resourceConflicts);
+
+    // Check for communication breakdowns
+    const commBreakdowns = this.detectCommunicationGaps(teamState, newAction);
+    conflicts.push(...commBreakdowns);
+
+    // Check for priority misalignment
+    const misalignments = this.detectPriorityMisalignment(teamState, newAction);
+    conflicts.push(...misalignments);
+
+    return conflicts;
+  }
+
+  detectResourceConflicts(teamState: TeamState, newAction: Action) {
+    const conflicts = [];
+
+    // Example: CFO cutting budget while CMO requesting more
+    for (const player of teamState.players) {
+      for (const otherPlayer of teamState.players) {
+        if (player.id === otherPlayer.id) continue;
+
+        const playerBudget = player.pending_actions.find(a => a.type === 'budget_allocation');
+        const otherBudget = otherPlayer.pending_actions.find(a => a.type === 'budget_allocation');
+
+        if (playerBudget && otherBudget) {
+          const overlap = this.calculateBudgetOverlap(playerBudget, otherBudget);
+          if (overlap.conflict_severity > 0.5) {
+            conflicts.push({
+              type: 'resource_allocation_clash',
+              severity: overlap.conflict_severity,
+              player1: player,
+              player2: otherPlayer,
+              action1: playerBudget,
+              action2: otherBudget,
+              resource: overlap.contested_resource
+            });
+          }
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  detectCommunicationGaps(teamState: TeamState, newAction: Action) {
+    const gaps = [];
+
+    // Detect parallel work on same problem without communication
+    const workstreams = teamState.players.map(p => ({
+      player: p,
+      focus: p.current_work_area
+    }));
+
+    for (let i = 0; i < workstreams.length; i++) {
+      for (let j = i + 1; j < workstreams.length; j++) {
+        const similarity = this.calculateWorkSimilarity(
+          workstreams[i].focus,
+          workstreams[j].focus
+        );
+
+        const recentComm = this.getRecentCommunication(
+          workstreams[i].player,
+          workstreams[j].player,
+          teamState.communication_log
+        );
+
+        if (similarity > 0.7 && recentComm.length === 0) {
+          gaps.push({
+            type: 'communication_breakdown',
+            severity: similarity,
+            player1: workstreams[i].player,
+            player2: workstreams[j].player,
+            redundant_work: workstreams[i].focus,
+            message: 'Players working on similar problems independently'
+          });
+        }
+      }
+    }
+
+    return gaps;
+  }
+
+  detectPriorityMisalignment(teamState: TeamState, newAction: Action) {
+    const misalignments = [];
+
+    // Use LLM to analyze if team members have conflicting priorities
+    const playerGoals = teamState.players.map(p => ({
+      player: p.id,
+      role: p.role,
+      stated_priorities: p.current_objectives,
+      recent_actions: p.recent_actions
+    }));
+
+    // LLM analysis for strategic misalignment
+    const prompt = `Analyze if these team members have conflicting priorities:
+    ${JSON.stringify(playerGoals, null, 2)}
+
+    Identify any strategic misalignments where players are optimizing for different outcomes.`;
+
+    // This would use GPT-3.5-turbo for cost efficiency
+    // Returns structured analysis of misalignments
+
+    return misalignments;
+  }
+}
+```
+
+#### Synergy Detection Engine
+
+```javascript
+class SynergyDetectionEngine {
+  async scan(teamState: TeamState, newAction: Action): Promise<DetectedSynergy[]> {
+    const synergies = [];
+
+    // Detect shared discoveries
+    const discoveries = this.detectSharedDiscoveries(teamState, newAction);
+    synergies.push(...discoveries);
+
+    // Detect complementary skills in action
+    const skillSynergies = this.detectComplementarySkills(teamState, newAction);
+    synergies.push(...skillSynergies);
+
+    // Detect effective knowledge sharing
+    const sharing = this.detectKnowledgeSharing(teamState, newAction);
+    synergies.push(...sharing);
+
+    return synergies;
+  }
+
+  detectSharedDiscoveries(teamState: TeamState, newAction: Action) {
+    const synergies = [];
+
+    // Find players who independently arrived at similar insights
+    for (let i = 0; i < teamState.players.length; i++) {
+      for (let j = i + 1; j < teamState.players.length; j++) {
+        const player1Research = teamState.players[i].research_findings;
+        const player2Research = teamState.players[j].research_findings;
+
+        const overlap = this.findResearchOverlap(player1Research, player2Research);
+
+        if (overlap.similarity > 0.6 && overlap.complementary) {
+          // They found related pieces of the puzzle
+          synergies.push({
+            type: 'shared_discovery',
+            players: [teamState.players[i], teamState.players[j]],
+            enhanced_solution: this.combineInsights(
+              player1Research,
+              player2Research
+            ),
+            efficiency_gain: overlap.time_saved,
+            confidence_multiplier: 1.5
+          });
+        }
+      }
+    }
+
+    return synergies;
+  }
+
+  detectComplementarySkills(teamState: TeamState, newAction: Action) {
+    const synergies = [];
+
+    // Example: Financial analyst + Marketing strategist working together
+    const collaborations = this.findActiveCollaborations(teamState);
+
+    for (const collab of collaborations) {
+      const skillMatch = this.assessSkillComplementarity(
+        collab.player1.expertise,
+        collab.player2.expertise,
+        collab.shared_task
+      );
+
+      if (skillMatch.synergy_score > 0.7) {
+        synergies.push({
+          type: 'complementary_skills',
+          players: [collab.player1, collab.player2],
+          skill_combination: skillMatch.combined_capability,
+          output_quality_boost: skillMatch.quality_multiplier,
+          unlocked_approaches: skillMatch.new_options
+        });
+      }
+    }
+
+    return synergies;
+  }
+
+  detectKnowledgeSharing(teamState: TeamState, newAction: Action) {
+    const synergies = [];
+
+    // Detect when a player shares critical information with someone who needs it
+    if (newAction.type === 'share_information') {
+      const recipient = teamState.players.find(p => p.id === newAction.recipient);
+      const informationValue = this.assessInformationValue(
+        newAction.information,
+        recipient.information_needs
+      );
+
+      if (informationValue > 0.7) {
+        synergies.push({
+          type: 'knowledge_sharing',
+          sharer: newAction.player,
+          recipient: recipient,
+          information: newAction.information,
+          value: informationValue,
+          unlocked_actions: this.getUnlockedActions(recipient, newAction.information)
+        });
+      }
+    }
+
+    return synergies;
+  }
+}
+```
+
+### Week 31: Explicit Collaboration Tools
+
+#### Breakout Room System
+
+```javascript
+class BreakoutRoomManager {
+  constructor(protocol: IMCPProtocol) {
+    this.protocol = protocol;
+    this.activeRooms = new Map();
+  }
+
+  async createBreakoutRoom(config: BreakoutConfig): Promise<BreakoutRoom> {
+    const room = {
+      id: `breakout_${Date.now()}`,
+      participants: config.participants,
+      purpose: config.purpose,
+      duration: config.duration,
+      created_at: Date.now(),
+      expires_at: Date.now() + (config.duration * 1000),
+      private: true,
+      facilitator: config.facilitator || null,
+      required_outcome: config.required_outcome || null,
+      transcript: []
+    };
+
+    // Create isolated MCP sub-session
+    const subSession = await this.protocol.createSubSession({
+      parent: config.parent_session,
+      participants: config.participants,
+      isolation: 'private',
+      data_inheritance: 'filtered' // Only relevant context
+    });
+
+    room.session_id = subSession.id;
+
+    // Store room
+    await this.protocol.write(`breakout_rooms.${room.id}`, room);
+    this.activeRooms.set(room.id, room);
+
+    // Notify participants
+    for (const participant of config.participants) {
+      await this.protocol.call('notify', 'send', {
+        to: participant,
+        message: `You've been invited to a breakout room: ${config.purpose}`,
+        action: 'join_breakout',
+        room_id: room.id
+      });
+    }
+
+    // Set expiration timer
+    setTimeout(async () => {
+      await this.closeBreakoutRoom(room.id);
+    }, config.duration * 1000);
+
+    return room;
+  }
+
+  async closeBreakoutRoom(roomId: string): Promise<Summary> {
+    const room = this.activeRooms.get(roomId);
+    if (!room) throw new Error('Room not found');
+
+    // Generate summary using AI
+    const summary = await this.generateRoomSummary(room);
+
+    // Check if required outcome was achieved
+    const outcomeAchieved = room.required_outcome
+      ? await this.checkOutcome(room)
+      : true;
+
+    // Merge insights back to main session
+    await this.protocol.call('session', 'merge_subsession', {
+      parent: room.parent_session,
+      child: room.session_id,
+      summary: summary,
+      outcome_achieved: outcomeAchieved
+    });
+
+    // Broadcast results to team
+    await this.protocol.broadcast('breakout_concluded', {
+      room_id: roomId,
+      summary: summary,
+      outcome: outcomeAchieved ? 'success' : 'unresolved',
+      next_steps: outcomeAchieved ? null : 'escalate_to_team_vote'
+    });
+
+    this.activeRooms.delete(roomId);
+
+    return summary;
+  }
+
+  async generateRoomSummary(room: BreakoutRoom): Promise<Summary> {
+    const prompt = `Summarize this breakout room discussion:
+    Purpose: ${room.purpose}
+    Participants: ${room.participants.map(p => p.role).join(', ')}
+    Transcript: ${JSON.stringify(room.transcript)}
+
+    Provide:
+    - Key points discussed
+    - Decisions made
+    - Unresolved issues
+    - Action items`;
+
+    const summary = await this.llm.complete({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    return {
+      key_points: summary.key_points,
+      decisions: summary.decisions,
+      unresolved: summary.unresolved,
+      action_items: summary.action_items,
+      consensus_level: summary.consensus_score
+    };
+  }
+}
+```
+
+#### Formal Voting System
+
+```javascript
+class TeamVotingSystem {
+  constructor(protocol: IMCPProtocol) {
+    this.protocol = protocol;
+    this.activeVotes = new Map();
+  }
+
+  async initiateVote(config: VoteConfig): Promise<Vote> {
+    const vote = {
+      id: `vote_${Date.now()}`,
+      team_id: config.team_id,
+      proposal: config.proposal,
+      type: config.type, // 'simple_majority', 'unanimous', 'weighted'
+      created_by: config.initiator,
+      created_at: Date.now(),
+      deadline: Date.now() + (config.duration * 1000),
+      eligible_voters: config.voters,
+      votes_cast: [],
+      status: 'active',
+      binding: config.binding || true
+    };
+
+    // Store vote
+    await this.protocol.write(`votes.${vote.id}`, vote);
+    this.activeVotes.set(vote.id, vote);
+
+    // Broadcast to team
+    await this.protocol.broadcast('vote_initiated', {
+      vote_id: vote.id,
+      proposal: vote.proposal,
+      deadline: vote.deadline,
+      vote_type: vote.type,
+      binding: vote.binding
+    });
+
+    // Notify each voter
+    for (const voter of vote.eligible_voters) {
+      await this.protocol.call('notify', 'send', {
+        to: voter,
+        type: 'vote_request',
+        vote_id: vote.id,
+        proposal: vote.proposal,
+        deadline: vote.deadline,
+        options: config.options || ['approve', 'reject', 'abstain']
+      });
+    }
+
+    // Set deadline timer
+    setTimeout(async () => {
+      await this.concludeVote(vote.id);
+    }, config.duration * 1000);
+
+    return vote;
+  }
+
+  async castVote(
+    voteId: string,
+    voterId: string,
+    choice: string,
+    reasoning?: string
+  ): Promise<void> {
+    const vote = this.activeVotes.get(voteId);
+    if (!vote) throw new Error('Vote not found');
+    if (vote.status !== 'active') throw new Error('Vote is closed');
+    if (!vote.eligible_voters.includes(voterId)) {
+      throw new Error('Not eligible to vote');
+    }
+
+    // Record vote
+    const ballot = {
+      voter: voterId,
+      choice: choice,
+      reasoning: reasoning,
+      timestamp: Date.now()
+    };
+
+    vote.votes_cast.push(ballot);
+
+    // Update stored vote
+    await this.protocol.write(`votes.${vote.id}`, vote);
+
+    // Broadcast vote received (not revealing choice for anonymity)
+    await this.protocol.broadcast('vote_received', {
+      vote_id: voteId,
+      votes_received: vote.votes_cast.length,
+      total_voters: vote.eligible_voters.length
+    });
+
+    // If all votes in, conclude early
+    if (vote.votes_cast.length === vote.eligible_voters.length) {
+      await this.concludeVote(voteId);
+    }
+  }
+
+  async concludeVote(voteId: string): Promise<VoteResult> {
+    const vote = this.activeVotes.get(voteId);
+    if (!vote) throw new Error('Vote not found');
+
+    vote.status = 'concluded';
+
+    // Calculate result based on vote type
+    const result = this.calculateResult(vote);
+
+    // Store result
+    await this.protocol.write(`votes.${vote.id}.result`, result);
+
+    // Broadcast final result
+    await this.protocol.broadcast('vote_concluded', {
+      vote_id: voteId,
+      proposal: vote.proposal,
+      result: result.outcome,
+      breakdown: result.breakdown,
+      binding: vote.binding,
+      next_action: result.next_action
+    });
+
+    // If binding, execute the decision
+    if (vote.binding && result.outcome === 'approved') {
+      await this.executeVoteDecision(vote, result);
+    }
+
+    this.activeVotes.delete(voteId);
+
+    return result;
+  }
+
+  calculateResult(vote: Vote): VoteResult {
+    const breakdown = {
+      approve: vote.votes_cast.filter(v => v.choice === 'approve').length,
+      reject: vote.votes_cast.filter(v => v.choice === 'reject').length,
+      abstain: vote.votes_cast.filter(v => v.choice === 'abstain').length
+    };
+
+    const totalVotes = breakdown.approve + breakdown.reject + breakdown.abstain;
+    const didNotVote = vote.eligible_voters.length - totalVotes;
+
+    let outcome;
+    switch (vote.type) {
+      case 'simple_majority':
+        outcome = breakdown.approve > (totalVotes / 2) ? 'approved' : 'rejected';
+        break;
+      case 'unanimous':
+        outcome = breakdown.approve === vote.eligible_voters.length
+          ? 'approved'
+          : 'rejected';
+        break;
+      case 'weighted':
+        // Could weight by role, seniority, expertise, etc.
+        outcome = this.calculateWeightedOutcome(vote);
+        break;
+    }
+
+    return {
+      outcome,
+      breakdown,
+      participation_rate: totalVotes / vote.eligible_voters.length,
+      did_not_vote: didNotVote,
+      next_action: this.determineNextAction(outcome, vote)
+    };
+  }
+
+  async executeVoteDecision(vote: Vote, result: VoteResult): Promise<void> {
+    // Execute the approved proposal
+    await this.protocol.call('universe', 'execute_decision', {
+      decision: vote.proposal,
+      approved_by: 'team_vote',
+      vote_id: vote.id,
+      mandate: result.breakdown
+    });
+
+    // Log in team history
+    await this.protocol.write(`team.${vote.team_id}.decisions.${vote.id}`, {
+      proposal: vote.proposal,
+      result: result,
+      executed: true,
+      timestamp: Date.now()
+    });
+  }
+}
+```
+
+### Week 32: Professor Control & Monitoring
 
 #### Professor Control System
 ```javascript
@@ -2485,13 +3167,41 @@ class ProfessorControlPanel {
       override_director: true
     });
   }
+
+  async deploySwarm(config: SwarmConfig): Promise<SwarmHandle> {
+    // Use the AISwarmController from earlier in the roadmap
+    const swarmController = new AISwarmController(this.protocol);
+    return await swarmController.deploySwarm(config);
+  }
+
+  async createBreakoutRoom(participants: string[], purpose: string): Promise<void> {
+    const breakoutManager = new BreakoutRoomManager(this.protocol);
+    await breakoutManager.createBreakoutRoom({
+      participants,
+      purpose,
+      duration: 600, // 10 minutes default
+      facilitator: 'ai_mediator'
+    });
+  }
+
+  async initiateTeamVote(proposal: string, voters: string[]): Promise<void> {
+    const votingSystem = new TeamVotingSystem(this.protocol);
+    await votingSystem.initiateVote({
+      team_id: this.currentTeam,
+      proposal,
+      voters,
+      type: 'simple_majority',
+      duration: 120, // 2 minutes
+      binding: true
+    });
+  }
 }
 ```
 
 ### Architecture at End of Stage 4
 ```
 ┌──────────────────────────────────────────────────┐
-│         Multi-User Web UI + Dashboards           │
+│    Multi-User Web UI + Dashboards + Controls    │
 └────────────────┬─────────────────────────────────┘
                  │ WebSocket + REST
 ┌────────────────▼─────────────────────────────────┐
@@ -2509,20 +3219,26 @@ class ProfessorControlPanel {
 │      [Universe-aware + Multi-participant]        │
 └────────────────┬─────────────────────────────────┘
                  │
-    ┌────────────┼────────────┬────────────┬──────────┐
-    ▼            ▼            ▼            ▼          ▼
-[Director]   [Actor]    [Bot Swarm]  [Humans]  [Professor]
-    │            │            │            │          │
-    └────────────┼────────────┴────────────┴──────────┘
-                 ▼
-         [Shared Universe]
-         - Persistent State
-         - Market Dynamics
-         - Team Artifacts
-         - Global Events
+    ┌────────────┼────────────┬────────────┬──────────┬───────────┐
+    ▼            ▼            ▼            ▼          ▼           ▼
+[Director]   [Actor]  [Team Coordinator] [Swarms] [Humans] [Professor]
+    │            │            │            │          │           │
+    │            │       ┌────▼────┐       │          │           │
+    │            │       │Conflict │       │          │           │
+    │            │       │Synergy  │       │          │           │
+    │            │       │Detection│       │          │           │
+    │            │       └─────────┘       │          │           │
+    └────────────┼────────────┬────────────┴──────────┴───────────┘
+                 ▼            ▼
+         [Shared Universe]  [Collaboration Tools]
+         - Persistent State  - Breakout Rooms
+         - Market Dynamics   - Voting System
+         - Team Artifacts    - AI Mediators
+         - Global Events     - Context Filters
+         - AI Bot Swarms     - Synergy Bonuses
 
-Codebase: ~50,000 lines
-New: Universe system, Multiplayer, Professor tools, Swarms
+Codebase: ~55,000 lines
+New: Team coordination AI, Collaboration tools, Swarms, Multiplayer
 Investment: $120K (4 engineers × 12 weeks)
 ```
 
