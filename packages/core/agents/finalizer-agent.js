@@ -95,10 +95,7 @@ class FinalizerAgent extends BaseAgent {
       // Learning objectives and structure
       goals: outline.goals,
       rules: outline.rules || [],
-      triggers: {
-        actor_triggers: outline.actor_triggers || [],
-        director_triggers: outline.director_triggers || []
-      },
+      triggers: outline.triggers || [], // Preserve SAG trigger array
       encounters: outline.encounters || [],
       lessons: outline.lessons || [],
       tests: outline.tests || [],

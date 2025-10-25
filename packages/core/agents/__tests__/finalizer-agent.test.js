@@ -310,9 +310,8 @@ describe('FinalizerAgent', () => {
           description: 'Test',
           actors: [],
           goals: [{ id: 'g1', title: 'Goal', description: 'Test', learning_objective: 'Learn', success_criteria: [], required_evidence: [], dependencies: [] }],
-          rules: ['Rule 1', 'Rule 2'],
-          actor_triggers: [{ condition: 'when X', action: 'do Y' }],
-          director_triggers: [{ condition: 'when Z', action: 'do W' }],
+          rules: [{ id: 'r1', title: 'Rule 1', description: 'First rule' }, { id: 'r2', title: 'Rule 2', description: 'Second rule' }],
+          triggers: [{ id: 't1', title: 'Trigger 1', condition: 'when X', effect: 'do Y' }],
           encounters: [{ id: 'e1', description: 'Encounter' }],
           lessons: [{ id: 'l1', content: 'Lesson' }],
           tests: [{ id: 't1', question: 'Test' }]
@@ -323,8 +322,7 @@ describe('FinalizerAgent', () => {
       const blueprint = await finalizer.execute();
 
       expect(blueprint.rules).toHaveLength(2);
-      expect(blueprint.triggers.actor_triggers).toHaveLength(1);
-      expect(blueprint.triggers.director_triggers).toHaveLength(1);
+      expect(blueprint.triggers).toHaveLength(1);
       expect(blueprint.encounters).toHaveLength(1);
       expect(blueprint.lessons).toHaveLength(1);
       expect(blueprint.tests).toHaveLength(1);

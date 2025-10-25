@@ -35,7 +35,7 @@ class ActorAgent extends BaseAgent {
 
     // Evaluate triggers
     const triggeredActions = this.evaluateTriggers(
-      blueprint.actors || [],
+      blueprint.triggers || [],
       conversationHistory,
       studentMessage
     );
@@ -70,8 +70,9 @@ class ActorAgent extends BaseAgent {
     // Prepare response metadata
     const metadata = {
       triggers_activated: triggeredActions.map(t => ({
-        actor: t.actorName,
-        action: t.action
+        triggerId: t.triggerId,
+        title: t.title,
+        effect: t.effect
       })),
       director_interventions: this.getActiveInterventions(directorState),
       timestamp: Date.now()
@@ -146,7 +147,14 @@ ${blueprint.scenario_text || blueprint.description}
     if (blueprint.rules && blueprint.rules.length > 0) {
       prompt += `SOCRATIC METHOD RULES:\n`;
       blueprint.rules.forEach(rule => {
-        prompt += `- ${rule}\n`;
+        // Handle both string and object formats
+        if (typeof rule === 'string') {
+          prompt += `- ${rule}\n`;
+        } else if (rule.title && rule.description) {
+          prompt += `- ${rule.title}: ${rule.description}\n`;
+        } else if (rule.description) {
+          prompt += `- ${rule.description}\n`;
+        }
       });
       prompt += `\n`;
     }
@@ -205,7 +213,7 @@ Remember: Your role is to develop critical thinking, not to provide solutions.`;
     if (triggeredActions.length > 0) {
       let triggerMessage = '⚡ TRIGGERS ACTIVATED:\n';
       triggeredActions.forEach(trigger => {
-        triggerMessage += `- ${trigger.actorName}: ${trigger.action}\n`;
+        triggerMessage += `- ${trigger.title}: ${trigger.effect}\n`;
       });
       messages.push({ role: 'system', content: triggerMessage });
     }
@@ -260,50 +268,57 @@ Remember: Your role is to develop critical thinking, not to provide solutions.`;
 
   /**
    * Evaluate triggers against current conversation state
-   * @param {Array} actors - Actor configurations
+   * @param {Array} triggers - Trigger configurations from blueprint
    * @param {Array} history - Conversation history
    * @param {string} studentMessage - Latest student message
    * @returns {Array} Triggered actions
    */
-  evaluateTriggers(actors, history, studentMessage) {
+  evaluateTriggers(triggers, history, studentMessage) {
+    if (!Array.isArray(triggers) || triggers.length === 0) {
+      return [];
+    }
+
     const triggeredActions = [];
     const messageCount = history.length + 1;
 
-    actors.forEach(actor => {
-      if (!actor.triggers || actor.triggers.length === 0) return;
+    triggers.forEach(trigger => {
+      let isTriggered = false;
 
-      actor.triggers.forEach(trigger => {
-        let isTriggered = false;
+      // Parse condition to determine trigger type
+      const condition = trigger.condition || '';
+      const conditionLower = condition.toLowerCase();
 
-        switch (trigger.trigger_type) {
-          case 'keyword':
-            // Check if keyword appears in student message
-            if (trigger.condition && studentMessage) {
-              const keywords = trigger.condition.toLowerCase().split(',').map(k => k.trim());
-              const messageLower = studentMessage.toLowerCase();
-              isTriggered = keywords.some(keyword => messageLower.includes(keyword));
-            }
-            break;
-
-          case 'message_count':
-            // Check if message count threshold reached
-            const targetCount = parseInt(trigger.condition, 10);
-            isTriggered = !isNaN(targetCount) && messageCount >= targetCount;
-            break;
-
-          default:
-            // Other trigger types handled by AI via prompt
-            isTriggered = false;
-        }
-
-        if (isTriggered && trigger.action) {
-          triggeredActions.push({
-            actorName: actor.name || actor.role || 'Actor',
-            action: trigger.action,
-            triggerType: trigger.trigger_type
+      // Check for keyword-based triggers
+      if (conditionLower.includes('mention') || conditionLower.includes('says') || conditionLower.includes('keyword')) {
+        // Extract keywords from condition (simple heuristic)
+        const keywords = condition.match(/"([^"]+)"/g) || [];
+        if (keywords.length > 0 && studentMessage) {
+          const messageLower = studentMessage.toLowerCase();
+          isTriggered = keywords.some(kw => {
+            const keyword = kw.replace(/"/g, '').toLowerCase();
+            return messageLower.includes(keyword);
           });
         }
-      });
+      }
+      // Check for message count triggers
+      else if (conditionLower.includes('message') && conditionLower.match(/\d+/)) {
+        const targetCount = parseInt(conditionLower.match(/\d+/)[0], 10);
+        isTriggered = !isNaN(targetCount) && messageCount >= targetCount;
+      }
+      // Check for time-based or other conditions (let AI handle via prompt)
+      else {
+        // These will be included in the prompt for AI awareness
+        isTriggered = false;
+      }
+
+      if (isTriggered && trigger.effect) {
+        triggeredActions.push({
+          triggerId: trigger.id,
+          title: trigger.title,
+          effect: trigger.effect,
+          condition: trigger.condition
+        });
+      }
     });
 
     return triggeredActions;

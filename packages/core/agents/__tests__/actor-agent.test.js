@@ -301,46 +301,38 @@ describe('ActorAgent', () => {
 
   describe('Trigger Evaluation', () => {
     test('should trigger keyword-based actions', () => {
-      const actorsWithTriggers = [
+      const triggers = [
         {
-          name: 'CFO',
-          triggers: [
-            {
-              trigger_type: 'keyword',
-              condition: 'budget,cost',
-              action: 'Express concern about financial implications'
-            }
-          ]
+          id: 'trigger_1',
+          title: 'Budget Discussion',
+          condition: 'When student mentions "budget" or "cost"',
+          effect: 'Express concern about financial implications'
         }
       ];
 
       const triggered = actor.evaluateTriggers(
-        actorsWithTriggers,
+        triggers,
         [],
         'I am worried about the budget for this project'
       );
 
       expect(triggered).toHaveLength(1);
-      expect(triggered[0].actorName).toBe('CFO');
-      expect(triggered[0].action).toContain('financial implications');
+      expect(triggered[0].title).toBe('Budget Discussion');
+      expect(triggered[0].effect).toContain('financial implications');
     });
 
     test('should be case-insensitive for keywords', () => {
-      const actorsWithTriggers = [
+      const triggers = [
         {
-          name: 'CFO',
-          triggers: [
-            {
-              trigger_type: 'keyword',
-              condition: 'BUDGET',
-              action: 'React to budget mention'
-            }
-          ]
+          id: 'trigger_1',
+          title: 'Budget Mention',
+          condition: 'When student says "BUDGET"',
+          effect: 'React to budget mention'
         }
       ];
 
       const triggered = actor.evaluateTriggers(
-        actorsWithTriggers,
+        triggers,
         [],
         'The budget looks tight'
       );
@@ -349,52 +341,45 @@ describe('ActorAgent', () => {
     });
 
     test('should trigger message count-based actions', () => {
-      const actorsWithTriggers = [
+      const triggers = [
         {
-          name: 'CEO',
-          triggers: [
-            {
-              trigger_type: 'message_count',
-              condition: '5',
-              action: 'Express urgency about timeline'
-            }
-          ]
+          id: 'trigger_1',
+          title: 'Timeline Urgency',
+          condition: 'After 5 messages',
+          effect: 'Express urgency about timeline'
         }
       ];
 
       const history = new Array(4).fill({ role: 'student', content: 'Test' });
 
       const triggered = actor.evaluateTriggers(
-        actorsWithTriggers,
+        triggers,
         history,
         'Current message'
       );
 
       expect(triggered).toHaveLength(1);
-      expect(triggered[0].action).toContain('urgency');
+      expect(triggered[0].effect).toContain('urgency');
     });
 
     test('should handle multiple triggers', () => {
-      const actorsWithTriggers = [
+      const triggers = [
         {
-          name: 'CFO',
-          triggers: [
-            {
-              trigger_type: 'keyword',
-              condition: 'budget',
-              action: 'Action 1'
-            },
-            {
-              trigger_type: 'keyword',
-              condition: 'budget',
-              action: 'Action 2'
-            }
-          ]
+          id: 'trigger_1',
+          title: 'Budget Alert 1',
+          condition: 'When student mentions "budget"',
+          effect: 'Action 1'
+        },
+        {
+          id: 'trigger_2',
+          title: 'Budget Alert 2',
+          condition: 'When student says "budget"',
+          effect: 'Action 2'
         }
       ];
 
       const triggered = actor.evaluateTriggers(
-        actorsWithTriggers,
+        triggers,
         [],
         'Talking about budget'
       );
@@ -404,7 +389,7 @@ describe('ActorAgent', () => {
 
     test('should add triggered actions to messages', () => {
       const triggeredActions = [
-        { actorName: 'CFO', action: 'Express budget concern', triggerType: 'keyword' }
+        { triggerId: 'trigger_1', title: 'Budget Concern', effect: 'Express budget concern', condition: 'keyword' }
       ];
 
       const messages = actor.buildMessages(
@@ -417,7 +402,7 @@ describe('ActorAgent', () => {
 
       const triggerMessages = messages.filter(m => m.content.includes('TRIGGERS ACTIVATED'));
       expect(triggerMessages).toHaveLength(1);
-      expect(triggerMessages[0].content).toContain('CFO');
+      expect(triggerMessages[0].content).toContain('Budget Concern');
       expect(triggerMessages[0].content).toContain('Express budget concern');
     });
   });
@@ -488,11 +473,12 @@ describe('ActorAgent', () => {
 
   describe('Metadata', () => {
     test('should include triggers in metadata', async () => {
-      mockBlueprint.actors[0].triggers = [
+      mockBlueprint.triggers = [
         {
-          trigger_type: 'keyword',
-          condition: 'risk',
-          action: 'Highlight risks'
+          id: 'trigger_1',
+          title: 'Risk Discussion',
+          condition: 'When student mentions "risk"',
+          effect: 'Highlight risks'
         }
       ];
       protocol.data.set('simulation_blueprint', mockBlueprint);
@@ -504,7 +490,7 @@ describe('ActorAgent', () => {
 
       expect(result.metadata.triggers_activated).toBeDefined();
       expect(result.metadata.triggers_activated.length).toBeGreaterThan(0);
-      expect(result.metadata.triggers_activated[0].actor).toBe('CFO');
+      expect(result.metadata.triggers_activated[0].title).toBe('Risk Discussion');
     });
 
     test('should include director interventions in metadata', async () => {
