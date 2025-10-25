@@ -1,9 +1,11 @@
 # CONSTRUCTION PLAN: MCP Architecture Refactor
 **Phase:** Stage 1 - Protocol Foundation
 **Timeline:** 4 weeks (Weeks 1-4)
-**Status:** Planning
+**Status:** Planning (Revised - TypeScript Removed)
 **Created:** October 24, 2025
-**Last Updated:** October 24, 2025
+**Last Updated:** October 25, 2025
+
+> **Note:** This is a revised plan. TypeScript has been removed in favor of JavaScript + JSDoc + Zod validation to reduce complexity and overhead while maintaining code quality through comprehensive testing and runtime validation.
 
 ---
 
@@ -87,28 +89,32 @@ The MCP refactor addresses these limitations by rebuilding the system from proto
 ### MCP Protocol Layer
 
 #### Core Interface (Never Changes)
-```typescript
-interface IMCPProtocol {
+```javascript
+/**
+ * @interface IMCPProtocol
+ * Core MCP Protocol Interface - All implementations must extend this base class
+ */
+class IMCPProtocol {
   // Core Operations
-  read(key: string): Promise<any>;
-  write(key: string, value: any, agentId: string): Promise<void>;
-  delete(key: string, agentId: string): Promise<void>;
-  exists(key: string): Promise<boolean>;
+  async read(key) { throw new Error('Must implement read()'); }
+  async write(key, value, agentId) { throw new Error('Must implement write()'); }
+  async delete(key, agentId) { throw new Error('Must implement delete()'); }
+  async exists(key) { throw new Error('Must implement exists()'); }
 
   // Agent Communication
-  call(agent: string, tool: string, params: any): Promise<any>;
-  broadcast(event: string, data: any): Promise<void>;
+  async call(agent, tool, params) { throw new Error('Must implement call()'); }
+  async broadcast(event, data) { throw new Error('Must implement broadcast()'); }
 
   // Permissions
-  checkPermission(agent: string, action: string, resource: string): Promise<boolean>;
-  grantPermission(agent: string, permission: Permission): Promise<void>;
+  async checkPermission(agent, action, resource) { throw new Error('Must implement checkPermission()'); }
+  async grantPermission(agent, permission) { throw new Error('Must implement grantPermission()'); }
 
   // Phase Management
-  transitionPhase(newPhase: string): Promise<void>;
-  getCurrentPhase(): string;
+  async transitionPhase(newPhase) { throw new Error('Must implement transitionPhase()'); }
+  getCurrentPhase() { throw new Error('Must implement getCurrentPhase()'); }
 
   // Audit
-  getAuditLog(filters?: AuditFilter): Promise<AuditEntry[]>;
+  async getAuditLog(filters) { throw new Error('Must implement getAuditLog()'); }
 }
 ```
 
@@ -253,21 +259,19 @@ Director/Actor (reads: simulation_blueprint, writes: state/responses)
   packages/core/
   ├── archive/              # Phase 0 reference code
   ├── protocol/
-  │   ├── interfaces/
-  │   │   └── mcp-protocol.interface.ts
-  │   ├── implementations/
-  │   │   └── mcp-v1-simple.ts
-  │   └── index.ts
+  │   ├── mcp-protocol.js   # Base interface class
+  │   ├── mcp-v1-simple.js  # V1 implementation
+  │   └── index.js
   ├── agents/
-  │   ├── base-agent.ts
-  │   └── index.ts
-  └── index.ts
+  │   ├── base-agent.js
+  │   └── index.js
+  └── index.js
   ```
-- [ ] **1.4**: Update package.json dependencies (add TypeScript support)
+- [ ] **1.4**: Verify package.json dependencies (no additional deps needed)
 
 #### Day 3-4: Protocol Implementation
-- [ ] **1.5**: Implement `IMCPProtocol` interface (TypeScript)
-- [ ] **1.6**: Implement `MCPProtocolV1` class with:
+- [ ] **1.5**: Implement `IMCPProtocol` base class with JSDoc annotations
+- [ ] **1.6**: Implement `MCPProtocolV1` class extending base with:
   - In-memory data store (for Week 1)
   - Phase management (building → reviewing → finalized → runtime)
   - Permission checking
@@ -425,19 +429,31 @@ Director/Actor (reads: simulation_blueprint, writes: state/responses)
 ### Component 1: MCP Protocol Core (`/packages/core/protocol/`)
 
 **Files:**
-- `interfaces/mcp-protocol.interface.ts` (~50 lines)
-- `implementations/mcp-v1-simple.ts` (~400 lines)
-- `index.ts` (~20 lines)
+- `mcp-protocol.js` (~70 lines) - Base class with JSDoc
+- `mcp-v1-simple.js` (~400 lines) - V1 implementation
+- `index.js` (~20 lines) - Exports
 
 **Key Implementation:**
-```typescript
-class MCPProtocolV1 implements IMCPProtocol {
-  private data: Map<string, any>;
-  private phase: Phase;
-  private auditLog: AuditEntry[];
-  private phasePermissions: PhasePermissions;
+```javascript
+/**
+ * @class MCPProtocolV1
+ * @extends IMCPProtocol
+ */
+class MCPProtocolV1 extends IMCPProtocol {
+  constructor() {
+    super();
+    this.data = new Map();
+    this.phase = 'building';
+    this.auditLog = [];
+    this.phasePermissions = { /* ... */ };
+  }
 
-  async write(key: string, value: any, agentId: string): Promise<void> {
+  /**
+   * @param {string} key - Data key
+   * @param {any} value - Data value
+   * @param {string} agentId - Writing agent ID
+   */
+  async write(key, value, agentId) {
     // Check permissions
     const canWrite = await this.checkPermission(agentId, 'write', key);
     if (!canWrite) {
@@ -466,7 +482,11 @@ class MCPProtocolV1 implements IMCPProtocol {
     });
   }
 
-  async transitionPhase(newPhase: Phase): Promise<void> {
+  /**
+   * Transition to a new phase (one-way only)
+   * @param {string} newPhase - Target phase
+   */
+  async transitionPhase(newPhase) {
     const validTransitions = {
       building: ['reviewing'],
       reviewing: ['finalized'],
@@ -491,31 +511,37 @@ class MCPProtocolV1 implements IMCPProtocol {
 
 ---
 
-### Component 2: Base Agent (`/packages/core/agents/base-agent.ts`)
+### Component 2: Base Agent (`/packages/core/agents/base-agent.js`)
 
-**File:** `base-agent.ts` (~150 lines)
+**File:** `base-agent.js` (~150 lines)
 
 **Key Implementation:**
-```typescript
-abstract class BaseAgent {
-  protected protocol: IMCPProtocol;
-  protected config: AgentConfig;
-  protected agentId: string;
-  protected openai: OpenAI;
-
-  constructor(protocol: IMCPProtocol, config: AgentConfig) {
+```javascript
+/**
+ * @class BaseAgent
+ * Base class for all MCP agents - provides protocol access and LLM utilities
+ */
+class BaseAgent {
+  /**
+   * @param {IMCPProtocol} protocol - MCP protocol instance
+   * @param {Object} config - Agent configuration
+   * @param {string} config.agentId - Unique agent identifier
+   */
+  constructor(protocol, config) {
     this.protocol = protocol;
     this.config = config;
     this.agentId = config.agentId;
     this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
-  // Fresh OpenAI context for each agent
-  protected async llmComplete(
-    messages: ChatMessage[],
-    model: string = 'gpt-4',
-    options?: CompletionOptions
-  ): Promise<string> {
+  /**
+   * Call LLM with fresh context (isolated per agent)
+   * @param {Array} messages - Chat message array
+   * @param {string} model - Model to use (default: gpt-4)
+   * @param {Object} options - Additional options
+   * @returns {Promise<string>} - LLM response
+   */
+  async llmComplete(messages, model = 'gpt-4', options = {}) {
     const response = await this.openai.chat.completions.create({
       model,
       messages,
@@ -528,32 +554,58 @@ abstract class BaseAgent {
   }
 
   // Protocol wrapper methods (automatic agent ID injection)
-  protected async read(key: string): Promise<any> {
+  /**
+   * Read data from protocol
+   * @param {string} key - Data key
+   */
+  async read(key) {
     return await this.protocol.read(key);
   }
 
-  protected async write(key: string, value: any): Promise<void> {
+  /**
+   * Write data to protocol (agent ID injected automatically)
+   * @param {string} key - Data key
+   * @param {any} value - Data value
+   */
+  async write(key, value) {
     return await this.protocol.write(key, value, this.agentId);
   }
 
-  protected async call(agent: string, tool: string, params: any): Promise<any> {
+  /**
+   * Call another agent through protocol
+   * @param {string} agent - Target agent ID
+   * @param {string} tool - Tool/method name
+   * @param {any} params - Parameters
+   */
+  async call(agent, tool, params) {
     return await this.protocol.call(agent, tool, params);
   }
 
-  protected async broadcast(event: string, data: any): Promise<void> {
+  /**
+   * Broadcast event to all agents
+   * @param {string} event - Event name
+   * @param {any} data - Event data
+   */
+  async broadcast(event, data) {
     return await this.protocol.broadcast(event, data);
   }
 
-  // Abstract method - each agent must implement
-  abstract execute(params?: any): Promise<any>;
+  /**
+   * Execute agent's primary task - MUST be implemented by subclasses
+   * @param {any} params - Execution parameters
+   * @returns {Promise<any>} - Agent-specific result
+   */
+  async execute(params) {
+    throw new Error('Subclass must implement execute()');
+  }
 }
 ```
 
 ---
 
-### Component 3: SAG Agent (`/packages/core/agents/sag-agent.ts`)
+### Component 3: SAG Agent (`/packages/core/agents/sag-agent.js`)
 
-**File:** `sag-agent.ts` (~350 lines)
+**File:** `sag-agent.js` (~350 lines)
 
 **Responsibilities:**
 - Read `parsed_data` from protocol
@@ -562,9 +614,18 @@ abstract class BaseAgent {
 - Broadcast `outline_ready` event
 
 **Key Logic:**
-```typescript
+```javascript
+/**
+ * @class SAGAgent
+ * @extends BaseAgent
+ * Scenario Arc Generator - creates goal-oriented outlines
+ */
 class SAGAgent extends BaseAgent {
-  async execute(): Promise<ScenarioOutline> {
+  /**
+   * Execute SAG analysis
+   * @returns {Promise<Object>} Scenario outline
+   */
+  async execute() {
     // Read from protocol
     const parsedData = await this.read('parsed_data');
     const settings = await this.read('simulation_settings');
@@ -584,10 +645,13 @@ class SAGAgent extends BaseAgent {
     return validated;
   }
 
-  private async generateGoalOrientedOutline(
-    parsedData: ParsedData,
-    settings: SimulationSettings
-  ): Promise<ScenarioOutline> {
+  /**
+   * Generate goal-oriented outline from parsed data
+   * @param {Object} parsedData - Parsed scenario data
+   * @param {Object} settings - Simulation settings
+   * @returns {Promise<Object>} Generated outline
+   */
+  async generateGoalOrientedOutline(parsedData, settings) {
     const prompt = this.buildSAGPrompt(parsedData, settings);
 
     const response = await this.llmComplete(
@@ -607,7 +671,13 @@ class SAGAgent extends BaseAgent {
     return JSON.parse(response);
   }
 
-  private buildSAGPrompt(parsed: ParsedData, settings: SimulationSettings): string {
+  /**
+   * Build SAG prompt from data
+   * @param {Object} parsed - Parsed data
+   * @param {Object} settings - Settings
+   * @returns {string} Prompt text
+   */
+  buildSAGPrompt(parsed, settings) {
     return `
 Generate a goal-oriented scenario outline from this parsed data.
 
@@ -640,9 +710,9 @@ OUTPUT STRUCTURE:
 
 ---
 
-### Component 4: Director Agent (`/packages/core/agents/director-agent.ts`)
+### Component 4: Director Agent (`/packages/core/agents/director-agent.js`)
 
-**File:** `director-agent.ts` (~300 lines)
+**File:** `director-agent.js` (~300 lines)
 
 **Responsibilities:**
 - Read `simulation_blueprint` from protocol
@@ -656,9 +726,20 @@ OUTPUT STRUCTURE:
 - Writes state to protocol (protocol handles DB persistence)
 
 **Key Logic:**
-```typescript
+```javascript
+/**
+ * @class DirectorAgent
+ * @extends BaseAgent
+ * Evaluates student progress and manages narrative arc
+ */
 class DirectorAgent extends BaseAgent {
-  async execute(params: DirectorEvalParams): Promise<DirectorDecision> {
+  /**
+   * Execute director evaluation
+   * @param {Object} params - Evaluation parameters
+   * @param {Array} params.conversationHistory - Conversation so far
+   * @returns {Promise<Object>} Director decision
+   */
+  async execute(params) {
     // Read from protocol
     const blueprint = await this.read('simulation_blueprint');
     const currentState = await this.read('director_state') || this.initializeState(blueprint);
@@ -683,11 +764,14 @@ class DirectorAgent extends BaseAgent {
     return decision;
   }
 
-  private async evaluateProgress(
-    blueprint: SimulationBlueprint,
-    state: DirectorState,
-    history: Message[]
-  ): Promise<DirectorDecision> {
+  /**
+   * Evaluate student progress
+   * @param {Object} blueprint - Simulation blueprint
+   * @param {Object} state - Current director state
+   * @param {Array} history - Conversation history
+   * @returns {Promise<Object>} Director decision
+   */
+  async evaluateProgress(blueprint, state, history) {
     const prompt = this.buildEvaluationPrompt(blueprint, state, history);
 
     const response = await this.llmComplete(
@@ -706,9 +790,9 @@ class DirectorAgent extends BaseAgent {
 
 ---
 
-### Component 5: Actor Agent (`/packages/core/agents/actor-agent.ts`)
+### Component 5: Actor Agent (`/packages/core/agents/actor-agent.js`)
 
-**File:** `actor-agent.ts` (~400 lines)
+**File:** `actor-agent.js` (~400 lines)
 
 **Responsibilities:**
 - Read `simulation_blueprint` and `director_state` from protocol
@@ -722,9 +806,21 @@ class DirectorAgent extends BaseAgent {
 - Implements Director decisions (tone, encounters, interventions)
 
 **Key Logic:**
-```typescript
+```javascript
+/**
+ * @class ActorAgent
+ * @extends BaseAgent
+ * Processes student messages and generates AI advisor responses
+ */
 class ActorAgent extends BaseAgent {
-  async execute(params: ActorProcessParams): Promise<ActorResponse> {
+  /**
+   * Execute actor processing
+   * @param {Object} params - Processing parameters
+   * @param {string} params.studentMessage - Student's message
+   * @param {Array} params.conversationHistory - Conversation history
+   * @returns {Promise<Object>} Actor response
+   */
+  async execute(params) {
     // Read from protocol
     const blueprint = await this.read('simulation_blueprint');
     const directorState = await this.read('director_state');
@@ -768,11 +864,14 @@ class ActorAgent extends BaseAgent {
     };
   }
 
-  private buildSystemPrompt(
-    blueprint: SimulationBlueprint,
-    directorState: DirectorState,
-    history: Message[]
-  ): string {
+  /**
+   * Build system prompt with Director guidance
+   * @param {Object} blueprint - Simulation blueprint
+   * @param {Object} directorState - Current director state
+   * @param {Array} history - Conversation history
+   * @returns {string} System prompt
+   */
+  buildSystemPrompt(blueprint, directorState, history) {
     let prompt = `You are an AI advisor in a business simulation.
 
 SCENARIO:
@@ -957,8 +1056,8 @@ module.exports = router;
 
 ### Unit Tests
 
-**Protocol Tests** (`/packages/core/protocol/__tests__/mcp-protocol.test.ts`)
-```typescript
+**Protocol Tests** (`/packages/core/protocol/__tests__/mcp-protocol.test.js`)
+```javascript
 describe('MCPProtocolV1', () => {
   test('enforces phase-based permissions', async () => {
     const protocol = new MCPProtocolV1();
@@ -1011,8 +1110,8 @@ describe('MCPProtocolV1', () => {
 });
 ```
 
-**Agent Tests** (`/packages/core/agents/__tests__/*.test.ts`)
-```typescript
+**Agent Tests** (`/packages/core/agents/__tests__/*.test.js`)
+```javascript
 describe('SAGAgent', () => {
   test('generates valid scenario outline from parsed data', async () => {
     const mockProtocol = new MockMCPProtocol();
@@ -1257,19 +1356,7 @@ test('student message response within 5 seconds', async () => {
 - Parallel systems (rejected: double maintenance burden)
 **Status:** Approved
 
-### Decision 2: TypeScript for Protocol Layer
-**Date:** October 24, 2025
-**Decision:** Use TypeScript for protocol and agents, JavaScript for API
-**Rationale:**
-- Protocol interface benefits from strong typing (safety, autocomplete)
-- Agents benefit from type safety with complex data structures
-- API can remain JavaScript (less critical, faster iteration)
-**Alternatives Considered:**
-- Full TypeScript conversion (rejected: too much scope for this phase)
-- Full JavaScript (rejected: lose type safety benefits for critical protocol)
-**Status:** Approved
-
-### Decision 3: In-Memory Protocol Storage (Week 1-3)
+### Decision 2: In-Memory Protocol Storage (Week 1-3)
 **Date:** October 24, 2025
 **Decision:** Week 1-3 use in-memory Map; Week 4 add database persistence
 **Rationale:**
@@ -1281,7 +1368,7 @@ test('student message response within 5 seconds', async () => {
 - Never persist (rejected: data loss on server restart)
 **Status:** Approved
 
-### Decision 4: GPT Model Assignments
+### Decision 3: GPT Model Assignments
 **Date:** October 24, 2025
 **Decision:**
 - Parser: GPT-3.5-turbo (fast, cheap, sufficient for extraction)
@@ -1298,7 +1385,7 @@ test('student message response within 5 seconds', async () => {
 - All GPT-3.5 (rejected: quality degradation for complex tasks)
 **Status:** Approved
 
-### Decision 5: Phase Transition Mechanism
+### Decision 4: Phase Transition Mechanism
 **Date:** October 24, 2025
 **Decision:** One-way phase transitions enforced by protocol
 **Rationale:**
@@ -1323,28 +1410,25 @@ windo/
 │   │   │   ├── actor-module.js
 │   │   │   └── director-prototype.js
 │   │   ├── protocol/
-│   │   │   ├── interfaces/
-│   │   │   │   └── mcp-protocol.interface.ts (~50 lines)
-│   │   │   ├── implementations/
-│   │   │   │   └── mcp-v1-simple.ts          (~400 lines)
+│   │   │   ├── mcp-protocol.js               (~70 lines, base class)
+│   │   │   ├── mcp-v1-simple.js              (~400 lines)
 │   │   │   ├── __tests__/
-│   │   │   │   └── mcp-protocol.test.ts      (~200 lines)
-│   │   │   └── index.ts                      (~20 lines)
+│   │   │   │   └── mcp-protocol.test.js      (~200 lines)
+│   │   │   └── index.js                      (~20 lines)
 │   │   ├── agents/
-│   │   │   ├── base-agent.ts                 (~150 lines)
-│   │   │   ├── parser-agent.ts               (~250 lines)
-│   │   │   ├── sag-agent.ts                  (~350 lines)
-│   │   │   ├── validator-agent.ts            (~200 lines)
-│   │   │   ├── finalizer-agent.ts            (~150 lines)
-│   │   │   ├── director-agent.ts             (~300 lines)
-│   │   │   ├── actor-agent.ts                (~400 lines)
+│   │   │   ├── base-agent.js                 (~150 lines)
+│   │   │   ├── parser-agent.js               (~250 lines)
+│   │   │   ├── sag-agent.js                  (~350 lines)
+│   │   │   ├── validator-agent.js            (~200 lines)
+│   │   │   ├── finalizer-agent.js            (~150 lines)
+│   │   │   ├── director-agent.js             (~300 lines)
+│   │   │   ├── actor-agent.js                (~400 lines)
 │   │   │   ├── __tests__/
-│   │   │   │   ├── parser-agent.test.ts
-│   │   │   │   ├── sag-agent.test.ts
+│   │   │   │   ├── parser-agent.test.js
+│   │   │   │   ├── sag-agent.test.js
 │   │   │   │   └── ...
-│   │   │   └── index.ts
-│   │   ├── package.json
-│   │   └── tsconfig.json
+│   │   │   └── index.js
+│   │   └── package.json
 │   │
 │   ├── api/
 │   │   ├── routers/
@@ -1382,15 +1466,15 @@ windo/
 ```
 
 **Total New Lines of Code Estimate:**
-- Protocol: ~670 lines (interfaces + implementation + tests)
+- Protocol: ~690 lines (base class + implementation + tests)
 - Agents: ~2,000 lines (7 agents + base + tests)
 - API: ~750 lines (2 routers + tests + E2E)
-- **Total: ~3,420 new lines**
+- **Total: ~3,440 new lines**
 
 **Removed Lines (to archive):**
 - Phase 0 code: ~1,500 lines (archived, not deleted)
 
-**Net Change: +1,920 lines** (cleaner, more maintainable, protocol-first)
+**Net Change: +1,940 lines** (cleaner, more maintainable, protocol-first, pure JavaScript)
 
 ---
 
@@ -1401,9 +1485,6 @@ windo/
 ```bash
 # Install dependencies
 npm install
-
-# Install TypeScript (if not already)
-npm install -D typescript ts-node @types/node
 
 # Run tests
 npm test
@@ -1442,9 +1523,6 @@ npm run create-agent <agent-name>
 
 # Run specific test
 npm test -- --testPathPattern=mcp-protocol
-
-# Build TypeScript
-cd packages/core && npm run build
 ```
 
 ### Debugging
