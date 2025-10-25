@@ -52,17 +52,17 @@ class MCPProtocolV1 extends IMCPProtocol {
         parser: {
           reads: ['raw_input'],
           writes: ['parsed_data'],
-          preserves: ['raw_input']
+          preserves: ['parsed_data'] // Fixed: Version parser's OWN output, not its input
         },
         sag: {
           reads: ['parsed_data', 'simulation_settings'],
           writes: ['scenario_outline'],
-          preserves: ['parsed_data']
+          preserves: ['scenario_outline'] // Fixed: Version SAG's OWN output, not its input
         },
         validator: {
           reads: ['*'],
-          writes: ['validation_warnings'],
-          preserves: ['*'] // Read-only except warnings
+          writes: ['validation_result'], // Fixed: was 'validation_warnings', but agent writes 'validation_result'
+          preserves: ['*'] // Read-only except validation_result
         },
         user: {
           reads: ['*'],

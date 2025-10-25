@@ -152,10 +152,11 @@ describe('MCPProtocolV1', () => {
         expect(canRead).toBe(true);
       });
 
-      test('should allow validator to write validation warnings only', async () => {
-        await protocol.write('validation_warnings', ['warning 1'], 'validator');
-        const warnings = await protocol.read('validation_warnings');
-        expect(warnings).toEqual(['warning 1']);
+      test('should allow validator to write validation_result only', async () => {
+        await protocol.write('validation_result', { valid: true, errors: [], warnings: ['warning 1'] }, 'validator');
+        const result = await protocol.read('validation_result');
+        expect(result.valid).toBe(true);
+        expect(result.warnings).toEqual(['warning 1']);
       });
 
       test('should reject validator modifying scenario data', async () => {
@@ -488,13 +489,13 @@ describe('MCPProtocolV1', () => {
       await protocol.write('scenario_outline', { goals: [], rules: [] }, 'sag');
 
       // Validator reviews
-      await protocol.write('validation_warnings', [], 'validator');
+      await protocol.write('validation_result', { valid: true, errors: [], warnings: [] }, 'validator');
 
       // Verify all data exists
       expect(await protocol.exists('raw_input')).toBe(true);
       expect(await protocol.exists('parsed_data')).toBe(true);
       expect(await protocol.exists('scenario_outline')).toBe(true);
-      expect(await protocol.exists('validation_warnings')).toBe(true);
+      expect(await protocol.exists('validation_result')).toBe(true);
 
       // Verify audit trail
       const auditLog = await protocol.getAuditLog();
